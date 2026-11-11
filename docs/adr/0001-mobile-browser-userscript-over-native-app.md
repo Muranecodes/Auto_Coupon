@@ -1,0 +1,3 @@
+# Mobile browser Userscript over native or WebView mobile apps
+
+To support both iOS and Android without jailbreak, app-store fees, or 7-day sideload re-signing, Auto_Coupon is delivered as a mobile-first browser Userscript (running in iOS Safari via Stay/Userscripts and Android/desktop browsers via Tampermonkey) rather than a native Accessibility app or standalone Flutter/React Native WebView app. iOS sandboxing blocks third-party apps from automating the native foodpanda and Uber Eats apps directly, whereas Wallet Coupons claimed on the web promotions pages (`foodpanda.com.tw` and `ubereats.com/tw`) bind directly to the user's account and become immediately usable inside the native mobile apps.

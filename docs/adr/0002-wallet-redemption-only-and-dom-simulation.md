@@ -1,0 +1,3 @@
+# Wallet-only DOM simulation over checkout testing and direct API requests
+
+Automated Redemption Runs operate exclusively on each Platform's account wallet page using simulated DOM input/click events paired with response/DOM outcome inspection, rather than testing codes at checkout or calling internal Platform APIs directly. Checkout Coupons depend on cart contents and credit-card BINs and risk interfering with live orders, so they are separated into a one-tap copy list instead; meanwhile, both foodpanda (PerimeterX) and Uber Eats enforce anti-bot request signatures and CSRF checks that reject raw background `fetch`/`XHR` calls unless triggered through real page UI interactions with randomized human-like delays.
