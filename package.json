@@ -1,0 +1,12 @@
+{
+  "name": "auto-coupon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile-first Taiwan foodpanda & Uber Eats automatic coupon wallet redemption Userscript and automated Coupon Feed scraper",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-userscript.mjs",
+    "test": "node --test tests/*.test.ts",
+    "scrape": "node src/scraper/cli.ts"
+  }
+}

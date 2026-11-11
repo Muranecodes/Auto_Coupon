@@ -1,0 +1,40 @@
+name: Update Coupon Feed
+
+on:
+  schedule:
+    # 08:00 and 20:00 Taiwan Time (UTC+8)
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run tests
+        run: npm test
+
+      - name: Scrape latest Taiwan foodpanda & Uber Eats coupons
+        run: npm run scrape
+
+      - name: Commit and push updated Coupon Feed if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/coupons.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(coupons): update Coupon Feed"
+            git push
+          else
+            echo "No coupon changes detected."
+          fi
