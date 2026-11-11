@@ -54,6 +54,18 @@ export function normalizeCouponCode(code: string): string {
   return code.trim();
 }
 
+export function dedupeCouponCodes(codes: string[]): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of codes) {
+    const norm = normalizeCouponCode(raw);
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    unique.push(norm);
+  }
+  return unique;
+}
+
 export function loadRedemptionRecords(
   platform: PlatformId,
 ): Record<string, RedemptionRecord> {
@@ -85,10 +97,6 @@ export function saveRedemptionRecord(
   records[normalized] = record;
   writeRaw(`records:${platform}`, JSON.stringify(records));
   return record;
-}
-
-export function clearRedemptionRecords(platform: PlatformId): void {
-  writeRaw(`records:${platform}`, null);
 }
 
 export function savePendingRunState(

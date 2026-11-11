@@ -128,6 +128,25 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       shadow.querySelector('[data-role="run-status"]')?.textContent ?? '',
       /已暫停/,
     );
+
+    // After user manually clears the anti-bot challenge and clicks Resume, remaining queue runs
+    challengeBanner.remove();
+    applyBtn.onclick = () => {
+      feedbackEl.textContent = '成功新增優惠券！';
+    };
+    const resumeBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="resume-run-btn"]',
+    )!;
+    resumeBtn.click();
+    await controller.waitForIdle();
+
+    assert.deepEqual(submittedCodes, ['CODE_A', 'CODE_B']);
+    assert.equal(
+      shadow
+        .querySelector('[data-wallet-code="CODE_A"]')
+        ?.getAttribute('data-coupon-status'),
+      'claimed',
+    );
   });
 
   it('supports Uber Eats platform namespace isolation and auto-navigates from non-wallet pages to resume a queued Redemption Run', async () => {

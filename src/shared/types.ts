@@ -11,7 +11,6 @@ export interface CouponEntry {
   code: string;
   platform: PlatformId;
   title: string;
-  description?: string;
   category: CouponCategory;
   expiresAt: string | null; // YYYY-MM-DD or null
   sourceUrl?: string;

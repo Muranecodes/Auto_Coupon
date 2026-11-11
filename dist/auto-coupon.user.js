@@ -63,6 +63,17 @@ function writeRaw(key        , value               )       {
 function normalizeCouponCode(code        )         {
   return code.trim();
 }
+function dedupeCouponCodes(codes          )           {
+  const unique           = [];
+  const seen = new Set        ();
+  for (const raw of codes) {
+    const norm = normalizeCouponCode(raw);
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    unique.push(norm);
+  }
+  return unique;
+}
 function loadRedemptionRecords(
   platform            ,
 )                                   {
@@ -93,9 +104,6 @@ function saveRedemptionRecord(
   records[normalized] = record;
   writeRaw(`records:${platform}`, JSON.stringify(records));
   return record;
-}
-function clearRedemptionRecords(platform            )       {
-  writeRaw(`records:${platform}`, null);
 }
 function savePendingRunState(
   state                               ,
@@ -232,6 +240,12 @@ function partitionPlatformCoupons(
 // --- src/userscript/parser.ts ---
 const NOISE_TOKEN_REGEX =
   /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;
+const COUPON_CONTEXT_HINT_REGEX =
+  /優惠碼|優惠序號|折扣碼|代碼|輸入|code|【|「|『/i;
+
+function escapeRegExp(str        )         {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function isValidCandidateToken(raw        )          {
   const token = raw.trim();
@@ -240,6 +254,28 @@ function isValidCandidateToken(raw        )          {
   if (/^\d+$/.test(token)) return false;
   if (/^(https?|www|foodpanda|ubereats)$/i.test(token)) return false;
   return /^[A-Za-z0-9\u4e00-\u9fff_-]+$/.test(token);
+}
+function hasCouponHint(text        )          {
+  return COUPON_CONTEXT_HINT_REGEX.test(text);
+}
+function stripCouponCodeFromTitle(
+  blockText        ,
+  code        ,
+)         {
+  const escaped = escapeRegExp(code);
+  const cleaned = blockText
+    .replace(new RegExp(`[【「『]\\s*${escaped}\\s*[】」』]`, 'g'), '')
+    .replace(
+      new RegExp(
+        `(?:輸入)?(?:優惠碼|優惠序號|折扣碼|代碼|code)\\s*[:：為是]?\\s*${escaped}`,
+        'gi',
+      ),
+      '',
+    )
+    .replace(/\s+/g, ' ')
+    .replace(/^[,，、:：\-—\s]+|[,，、:：\-—\s]+$/g, '')
+    .trim();
+  return cleaned || `${code} 優惠券`;
 }
 function extractCandidateChips(text        )                  {
   const results                  = [];
@@ -256,21 +292,29 @@ function extractCandidateChips(text        )                  {
     results.push({ code: cleaned, selected: true });
   };
 
-  // Scan line by line in source order for explicit bracketed or keyword-prefixed codes
-  const explicitPattern =
-    /【([^】\n]{2,20})】|「([^」\n]{2,20})」|『([^』\n]{2,20})』|(?:優惠碼|優惠序號|折扣碼|代碼|code)\s*[:：為是]?\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,20})|輸入\s*([A-Za-z0-9_-]{3,20})/gi;
+  const lines = text.split(/[\r\n]+/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
 
-  let match                        ;
-  while ((match = explicitPattern.exec(text)) !== null) {
-    const token = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5];
-    pushCandidate(token);
-  }
+    const explicitPattern =
+      /【([^】\n]{2,20})】|「([^」\n]{2,20})」|『([^』\n]{2,20})』|(?:優惠碼|優惠序號|折扣碼|代碼|code)\s*[:：為是]?\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,20})|輸入\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,12})(?=\s|$|[，,。！!）)])/gi;
 
-  // Fallback: if no explicit delimiters matched, treat input as a whitespace/comma/newline separated list of codes
-  if (results.length === 0) {
-    const rawTokens = text.split(/[\r\n,，、;；\s]+/);
-    for (const tok of rawTokens) {
-      pushCandidate(tok);
+    let matchedExplicitInLine = false;
+    let match                        ;
+    while ((match = explicitPattern.exec(line)) !== null) {
+      const token = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5];
+      if (token) {
+        matchedExplicitInLine = true;
+        pushCandidate(token);
+      }
+    }
+
+    if (!matchedExplicitInLine && !/[。！!？?（）()]/.test(line)) {
+      const rawTokens = line.split(/[,，、;；\s]+/);
+      for (const tok of rawTokens) {
+        pushCandidate(tok);
+      }
     }
   }
 
@@ -349,6 +393,45 @@ function classifyFeedbackText(text        )                           {
   };
 }
 
+let lastInterceptedResponseText                = null;
+let snifferInstalled = false;
+function recordNetworkFeedbackText(bodyText        )       {
+  if (bodyText && bodyText.trim()) {
+    lastInterceptedResponseText = bodyText.trim();
+  }
+}
+function consumeNetworkFeedbackText()                {
+  const val = lastInterceptedResponseText;
+  lastInterceptedResponseText = null;
+  return val;
+}
+function installNetworkFeedbackSniffer()       {
+  if (snifferInstalled || typeof window === 'undefined') return;
+  snifferInstalled = true;
+  const win = window                
+                         
+   ;
+  if (typeof win.fetch === 'function') {
+    const origFetch = win.fetch.bind(window);
+    win.fetch = async (...args                          ) => {
+      const res = await origFetch(...args);
+      try {
+        const reqUrl =
+          typeof args[0] === 'string'
+            ? args[0]
+            : (args[0]                    )?.url ?? '';
+        if (/voucher|promo|coupon/i.test(reqUrl) && typeof res.clone === 'function') {
+          const text = await res.clone().text();
+          recordNetworkFeedbackText(text);
+        }
+      } catch {
+        // Ignore clone/read errors
+      }
+      return res;
+    };
+  }
+}
+
 function createPlatformAdapter(config                       )                  {
   return {
     id: config.id,
@@ -394,6 +477,10 @@ function createPlatformAdapter(config                       )                  {
     },
 
     classifyFeedback(doc          )                           {
+      const networkText = consumeNetworkFeedbackText();
+      if (networkText) {
+        return classifyFeedbackText(networkText);
+      }
       for (const sel of config.feedbackSelectors) {
         const el = doc.querySelector(sel);
         if (el && el.textContent?.trim()) {
@@ -593,6 +680,8 @@ const SHADOW_STYLES = `
 function mountAutoCoupon(
   options                         = {},
 )                       {
+  installNetworkFeedbackSniffer();
+
   const currentUrl =
     options.url ??
     (typeof window !== 'undefined' && window.location
@@ -625,6 +714,8 @@ function mountAutoCoupon(
   let feedWalletCoupons                = [];
   let feedCheckoutCoupons                = [];
   let candidateChips                  = [];
+  let pausedRemainingCodes           = [];
+  const liveStatusByCode = new Map                          ();
   let copiedCheckoutCode                = null;
   let activeTaskPromise                       = null;
   let runStatusText = '待命';
@@ -661,6 +752,11 @@ function mountAutoCoupon(
       </div>
       <div class="ac-row">
         <button type="button" class="ac-btn" data-role="start-run-btn">開始批次歸戶</button>
+        <button type="button" class="ac-btn ac-btn-secondary" data-role="resume-run-btn">繼續執行</button>
+      </div>
+      <div class="ac-section">
+        <div>歸戶型優惠碼佇列（Wallet Coupons）：</div>
+        <div data-role="wallet-coupon-list"></div>
       </div>
       <div class="ac-section">
         <div>智慧文字擷取（貼上 LINE / 懶人包文字）：</div>
@@ -707,6 +803,12 @@ function mountAutoCoupon(
   const startRunBtn = shadow.querySelector                   (
     '[data-role="start-run-btn"]',
   ) ;
+  const resumeRunBtn = shadow.querySelector                   (
+    '[data-role="resume-run-btn"]',
+  ) ;
+  const walletListEl = shadow.querySelector             (
+    '[data-role="wallet-coupon-list"]',
+  ) ;
   const freeformInput = shadow.querySelector                  (
     '[data-role="freeform-input"]',
   ) ;
@@ -721,25 +823,40 @@ function mountAutoCoupon(
   ) ;
 
   function getEffectiveWalletCodes()           {
-    const combined = [
+    return dedupeCouponCodes([
       ...manualQueueCodes,
       ...feedWalletCoupons.map((c) => c.code),
       ...candidateChips.filter((c) => c.selected).map((c) => c.code),
-    ];
-    const unique           = [];
-    const seen = new Set        ();
-    for (const raw of combined) {
-      const norm = normalizeCouponCode(raw);
-      if (!norm || seen.has(norm)) continue;
-      seen.add(norm);
-      unique.push(norm);
-    }
-    return unique;
+    ]);
   }
 
   function computeUntriedCount()         {
     const records = loadRedemptionRecords(platform.id);
     return getEffectiveWalletCodes().filter((code) => !records[code]).length;
+  }
+
+  function renderWalletCoupons()       {
+    walletListEl.innerHTML = '';
+    const records = loadRedemptionRecords(platform.id);
+    const titleByCode = new Map(
+      feedWalletCoupons.map((c) => [normalizeCouponCode(c.code), c.title]),
+    );
+
+    for (const code of getEffectiveWalletCodes()) {
+      const row = document.createElement('div');
+      row.setAttribute('class', 'ac-row');
+      row.setAttribute('data-wallet-code', code);
+
+      const status                   =
+        liveStatusByCode.get(code) ?? records[code]?.outcome ?? 'pending';
+      row.setAttribute('data-coupon-status', status);
+
+      const title = titleByCode.get(code);
+      row.textContent = title
+        ? `${code} (${title}) [${status}]`
+        : `${code} [${status}]`;
+      walletListEl.appendChild(row);
+    }
   }
 
   function renderCandidateChips()       {
@@ -755,6 +872,7 @@ function mountAutoCoupon(
       btn.addEventListener('click', () => {
         chip.selected = !chip.selected;
         btn.setAttribute('data-selected', chip.selected ? 'true' : 'false');
+        renderWalletCoupons();
         renderState();
       });
       candidateChipListEl.appendChild(btn);
@@ -806,6 +924,7 @@ function mountAutoCoupon(
     statusEl.textContent = `狀態：${runStatusText}`;
     summaryEl.textContent = `成功: ${summaryCounts.claimed} | 已領過: ${summaryCounts.already_claimed} | 無效/過期: ${summaryCounts.invalid_or_expired}`;
     pillBadge.textContent = String(computeUntriedCount());
+    renderWalletCoupons();
   }
 
   async function syncFeed()                {
@@ -878,15 +997,24 @@ function mountAutoCoupon(
     renderState();
   });
 
-  async function executeRedemptionRun(codesToRun          )                {
-    summaryCounts = {
-      claimed: 0,
-      already_claimed: 0,
-      invalid_or_expired: 0,
-    };
+  async function executeRedemptionRun(
+    codesToRun          ,
+    isResuming = false,
+  )                {
+    if (!isResuming) {
+      summaryCounts = {
+        claimed: 0,
+        already_claimed: 0,
+        invalid_or_expired: 0,
+      };
+      liveStatusByCode.clear();
+    }
+
+    const dedupedCodes = dedupeCouponCodes(codesToRun);
 
     const preBlock = platform.detectChallengeOrAuthBlock(document);
     if (preBlock) {
+      pausedRemainingCodes = [...dedupedCodes];
       runStatusText = `已暫停：${preBlock}`;
       renderState();
       return;
@@ -895,7 +1023,7 @@ function mountAutoCoupon(
     if (!platform.isWalletPage(currentUrl, document)) {
       savePendingRunState({
         platform: platform.id,
-        codes: codesToRun.map((c) => normalizeCouponCode(c)).filter(Boolean),
+        codes: dedupedCodes,
         forceRetry,
         createdAt: new Date().toISOString(),
       });
@@ -908,25 +1036,20 @@ function mountAutoCoupon(
     const records                                   = loadRedemptionRecords(
       platform.id,
     );
-    const seenInRun = new Set        ();
-    const filteredCodes           = [];
-
-    for (const rawCode of codesToRun) {
-      const code = normalizeCouponCode(rawCode);
-      if (!code || seenInRun.has(code)) continue;
-      seenInRun.add(code);
-      if (!forceRetry && records[code]) {
-        continue;
-      }
-      filteredCodes.push(code);
-    }
+    const filteredCodes = dedupedCodes.filter(
+      (code) => isResuming || forceRetry || !records[code],
+    );
 
     if (filteredCodes.length === 0) {
+      pausedRemainingCodes = [];
       runStatusText = '已完成（無待執行的優惠碼）';
       renderState();
       return;
     }
 
+    for (const c of filteredCodes) {
+      liveStatusByCode.set(c, 'pending');
+    }
     runStatusText = `執行中 (0/${filteredCodes.length})`;
     renderState();
 
@@ -934,6 +1057,7 @@ function mountAutoCoupon(
       const code = filteredCodes[i] ;
       const blockMsg = platform.detectChallengeOrAuthBlock(document);
       if (blockMsg) {
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = `已暫停：${blockMsg}`;
         renderState();
         return;
@@ -941,11 +1065,13 @@ function mountAutoCoupon(
 
       const { input, submit } = platform.findInputAndSubmit(document);
       if (!input || !submit) {
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = '已暫停：找不到優惠碼輸入框或套用按鈕';
         renderState();
         return;
       }
 
+      liveStatusByCode.set(code, 'submitting');
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
@@ -959,37 +1085,55 @@ function mountAutoCoupon(
 
       const postBlock = platform.detectChallengeOrAuthBlock(document);
       if (postBlock) {
+        liveStatusByCode.set(code, 'pending');
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = `已暫停：${postBlock}`;
         renderState();
         return;
       }
 
       const result = platform.classifyFeedback(document);
+      liveStatusByCode.set(code, result.outcome);
       summaryCounts[result.outcome] += 1;
       saveRedemptionRecord(platform.id, code, result.outcome, result.message);
       renderState();
     }
 
+    pausedRemainingCodes = [];
     runStatusText = '已完成';
     renderState();
   }
 
   startRunBtn.addEventListener('click', () => {
-    activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes());
+    activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes(), false);
   });
 
-  if (platform.isWalletPage(currentUrl, document)) {
-    const pending = consumePendingRunState(platform.id);
-    if (pending && pending.codes.length > 0) {
-      isOpen = true;
-      forceRetry = Boolean(pending.forceRetry);
-      forceRetryCheckbox.checked = forceRetry;
-      manualQueueCodes = [...pending.codes];
-      activeTaskPromise = executeRedemptionRun([...manualQueueCodes]);
-    }
+  resumeRunBtn.addEventListener('click', () => {
+    const remaining =
+      pausedRemainingCodes.length > 0
+        ? [...pausedRemainingCodes]
+        : getEffectiveWalletCodes();
+    activeTaskPromise = executeRedemptionRun(remaining, true);
+  });
+
+  const pending = platform.isWalletPage(currentUrl, document)
+    ? consumePendingRunState(platform.id)
+    : null;
+
+  if (pending && pending.codes.length > 0) {
+    isOpen = true;
+    forceRetry = Boolean(pending.forceRetry);
+    forceRetryCheckbox.checked = forceRetry;
+    manualQueueCodes = [...pending.codes];
   }
 
-  if (options.autoSyncFeed !== false && !activeTaskPromise) {
+  if (options.autoSyncFeed !== false && pending && pending.codes.length > 0) {
+    activeTaskPromise = syncFeed().then(() =>
+      executeRedemptionRun([...manualQueueCodes], false),
+    );
+  } else if (pending && pending.codes.length > 0) {
+    activeTaskPromise = executeRedemptionRun([...manualQueueCodes], false);
+  } else if (options.autoSyncFeed !== false) {
     activeTaskPromise = syncFeed();
   }
 
@@ -998,7 +1142,7 @@ function mountAutoCoupon(
   return {
     platform,
     setQueue(codes          ) {
-      manualQueueCodes = codes.map((c) => normalizeCouponCode(c)).filter(Boolean);
+      manualQueueCodes = dedupeCouponCodes(codes);
       renderState();
     },
     getQueue() {

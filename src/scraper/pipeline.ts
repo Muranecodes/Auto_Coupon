@@ -5,7 +5,11 @@ import type {
   PlatformId,
 } from '../shared/types.ts';
 import { isCouponExpired } from '../userscript/feed.ts';
-import { extractCandidateChips } from '../userscript/parser.ts';
+import {
+  extractCandidateChips,
+  hasCouponHint,
+  stripCouponCodeFromTitle,
+} from '../userscript/parser.ts';
 
 export interface ScraperSourceInput {
   platform: PlatformId;
@@ -76,27 +80,6 @@ export function classifyCouponCategory(contextText: string): CouponCategory {
   return 'wallet';
 }
 
-function cleanCouponTitle(blockText: string, code: string): string {
-  const cleaned = blockText
-    .replace(new RegExp(`【\\s*${escapeRegExp(code)}\\s*】`, 'g'), '')
-    .replace(new RegExp(`「\\s*${escapeRegExp(code)}\\s*」`, 'g'), '')
-    .replace(
-      new RegExp(
-        `(?:輸入)?(?:優惠碼|優惠序號|折扣碼|代碼)\\s*[:：]?\\s*${escapeRegExp(code)}`,
-        'gi',
-      ),
-      '',
-    )
-    .replace(/\s+/g, ' ')
-    .replace(/^[,，、:：\-—\s]+|[,，、:：\-—\s]+$/g, '')
-    .trim();
-  return cleaned || `${code} 優惠券`;
-}
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function entriesContentEqual(a: CouponEntry, b: CouponEntry): boolean {
   return (
     a.code === b.code &&
@@ -132,7 +115,7 @@ export function buildCouponFeed(
   for (const source of sources) {
     const blocks = splitHtmlIntoBlocks(source.html);
     for (const block of blocks) {
-      if (!/優惠碼|優惠序號|折扣碼|代碼|輸入|【|「/.test(block)) continue;
+      if (!hasCouponHint(block)) continue;
       const chips = extractCandidateChips(block);
       if (chips.length === 0) continue;
 
@@ -147,7 +130,7 @@ export function buildCouponFeed(
         const candidate: CouponEntry = {
           code: chip.code,
           platform: source.platform,
-          title: cleanCouponTitle(block, chip.code),
+          title: stripCouponCodeFromTitle(block, chip.code),
           category,
           expiresAt,
           sourceUrl: source.url,

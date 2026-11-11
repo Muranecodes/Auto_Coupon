@@ -100,6 +100,48 @@ function classifyFeedbackText(text: string): PlatformSubmissionResult {
   };
 }
 
+let lastInterceptedResponseText: string | null = null;
+let snifferInstalled = false;
+
+export function recordNetworkFeedbackText(bodyText: string): void {
+  if (bodyText && bodyText.trim()) {
+    lastInterceptedResponseText = bodyText.trim();
+  }
+}
+
+export function consumeNetworkFeedbackText(): string | null {
+  const val = lastInterceptedResponseText;
+  lastInterceptedResponseText = null;
+  return val;
+}
+
+export function installNetworkFeedbackSniffer(): void {
+  if (snifferInstalled || typeof window === 'undefined') return;
+  snifferInstalled = true;
+  const win = window as unknown as {
+    fetch?: typeof fetch;
+  };
+  if (typeof win.fetch === 'function') {
+    const origFetch = win.fetch.bind(window);
+    win.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await origFetch(...args);
+      try {
+        const reqUrl =
+          typeof args[0] === 'string'
+            ? args[0]
+            : (args[0] as { url?: string })?.url ?? '';
+        if (/voucher|promo|coupon/i.test(reqUrl) && typeof res.clone === 'function') {
+          const text = await res.clone().text();
+          recordNetworkFeedbackText(text);
+        }
+      } catch {
+        // Ignore clone/read errors
+      }
+      return res;
+    };
+  }
+}
+
 function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
   return {
     id: config.id,
@@ -145,6 +187,10 @@ function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
     },
 
     classifyFeedback(doc: Document): PlatformSubmissionResult {
+      const networkText = consumeNetworkFeedbackText();
+      if (networkText) {
+        return classifyFeedbackText(networkText);
+      }
       for (const sel of config.feedbackSelectors) {
         const el = doc.querySelector(sel);
         if (el && el.textContent?.trim()) {

@@ -12,16 +12,23 @@ import {
 import { extractCandidateChips } from './parser.ts';
 import {
   detectPlatform,
+  installNetworkFeedbackSniffer,
   setNativeInputValue,
   type PlatformAdapter,
 } from './platforms.ts';
 import {
   consumePendingRunState,
+  dedupeCouponCodes,
   loadRedemptionRecords,
   normalizeCouponCode,
   savePendingRunState,
   saveRedemptionRecord,
 } from './storage.ts';
+
+export type LiveCouponStatus =
+  | 'pending'
+  | 'submitting'
+  | RedemptionOutcome;
 
 export interface MountAutoCouponOptions {
   url?: string;
@@ -164,6 +171,8 @@ const SHADOW_STYLES = `
 export function mountAutoCoupon(
   options: MountAutoCouponOptions = {},
 ): AutoCouponController {
+  installNetworkFeedbackSniffer();
+
   const currentUrl =
     options.url ??
     (typeof window !== 'undefined' && window.location
@@ -196,6 +205,8 @@ export function mountAutoCoupon(
   let feedWalletCoupons: CouponEntry[] = [];
   let feedCheckoutCoupons: CouponEntry[] = [];
   let candidateChips: CandidateChip[] = [];
+  let pausedRemainingCodes: string[] = [];
+  const liveStatusByCode = new Map<string, LiveCouponStatus>();
   let copiedCheckoutCode: string | null = null;
   let activeTaskPromise: Promise<void> | null = null;
   let runStatusText = '待命';
@@ -232,6 +243,11 @@ export function mountAutoCoupon(
       </div>
       <div class="ac-row">
         <button type="button" class="ac-btn" data-role="start-run-btn">開始批次歸戶</button>
+        <button type="button" class="ac-btn ac-btn-secondary" data-role="resume-run-btn">繼續執行</button>
+      </div>
+      <div class="ac-section">
+        <div>歸戶型優惠碼佇列（Wallet Coupons）：</div>
+        <div data-role="wallet-coupon-list"></div>
       </div>
       <div class="ac-section">
         <div>智慧文字擷取（貼上 LINE / 懶人包文字）：</div>
@@ -278,6 +294,12 @@ export function mountAutoCoupon(
   const startRunBtn = shadow.querySelector<HTMLButtonElement>(
     '[data-role="start-run-btn"]',
   )!;
+  const resumeRunBtn = shadow.querySelector<HTMLButtonElement>(
+    '[data-role="resume-run-btn"]',
+  )!;
+  const walletListEl = shadow.querySelector<HTMLElement>(
+    '[data-role="wallet-coupon-list"]',
+  )!;
   const freeformInput = shadow.querySelector<HTMLInputElement>(
     '[data-role="freeform-input"]',
   )!;
@@ -292,25 +314,40 @@ export function mountAutoCoupon(
   )!;
 
   function getEffectiveWalletCodes(): string[] {
-    const combined = [
+    return dedupeCouponCodes([
       ...manualQueueCodes,
       ...feedWalletCoupons.map((c) => c.code),
       ...candidateChips.filter((c) => c.selected).map((c) => c.code),
-    ];
-    const unique: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of combined) {
-      const norm = normalizeCouponCode(raw);
-      if (!norm || seen.has(norm)) continue;
-      seen.add(norm);
-      unique.push(norm);
-    }
-    return unique;
+    ]);
   }
 
   function computeUntriedCount(): number {
     const records = loadRedemptionRecords(platform.id);
     return getEffectiveWalletCodes().filter((code) => !records[code]).length;
+  }
+
+  function renderWalletCoupons(): void {
+    walletListEl.innerHTML = '';
+    const records = loadRedemptionRecords(platform.id);
+    const titleByCode = new Map(
+      feedWalletCoupons.map((c) => [normalizeCouponCode(c.code), c.title]),
+    );
+
+    for (const code of getEffectiveWalletCodes()) {
+      const row = document.createElement('div');
+      row.setAttribute('class', 'ac-row');
+      row.setAttribute('data-wallet-code', code);
+
+      const status: LiveCouponStatus =
+        liveStatusByCode.get(code) ?? records[code]?.outcome ?? 'pending';
+      row.setAttribute('data-coupon-status', status);
+
+      const title = titleByCode.get(code);
+      row.textContent = title
+        ? `${code} (${title}) [${status}]`
+        : `${code} [${status}]`;
+      walletListEl.appendChild(row);
+    }
   }
 
   function renderCandidateChips(): void {
@@ -326,6 +363,7 @@ export function mountAutoCoupon(
       btn.addEventListener('click', () => {
         chip.selected = !chip.selected;
         btn.setAttribute('data-selected', chip.selected ? 'true' : 'false');
+        renderWalletCoupons();
         renderState();
       });
       candidateChipListEl.appendChild(btn);
@@ -377,6 +415,7 @@ export function mountAutoCoupon(
     statusEl.textContent = `狀態：${runStatusText}`;
     summaryEl.textContent = `成功: ${summaryCounts.claimed} | 已領過: ${summaryCounts.already_claimed} | 無效/過期: ${summaryCounts.invalid_or_expired}`;
     pillBadge.textContent = String(computeUntriedCount());
+    renderWalletCoupons();
   }
 
   async function syncFeed(): Promise<void> {
@@ -449,15 +488,24 @@ export function mountAutoCoupon(
     renderState();
   });
 
-  async function executeRedemptionRun(codesToRun: string[]): Promise<void> {
-    summaryCounts = {
-      claimed: 0,
-      already_claimed: 0,
-      invalid_or_expired: 0,
-    };
+  async function executeRedemptionRun(
+    codesToRun: string[],
+    isResuming = false,
+  ): Promise<void> {
+    if (!isResuming) {
+      summaryCounts = {
+        claimed: 0,
+        already_claimed: 0,
+        invalid_or_expired: 0,
+      };
+      liveStatusByCode.clear();
+    }
+
+    const dedupedCodes = dedupeCouponCodes(codesToRun);
 
     const preBlock = platform.detectChallengeOrAuthBlock(document);
     if (preBlock) {
+      pausedRemainingCodes = [...dedupedCodes];
       runStatusText = `已暫停：${preBlock}`;
       renderState();
       return;
@@ -466,7 +514,7 @@ export function mountAutoCoupon(
     if (!platform.isWalletPage(currentUrl, document)) {
       savePendingRunState({
         platform: platform.id,
-        codes: codesToRun.map((c) => normalizeCouponCode(c)).filter(Boolean),
+        codes: dedupedCodes,
         forceRetry,
         createdAt: new Date().toISOString(),
       });
@@ -479,25 +527,20 @@ export function mountAutoCoupon(
     const records: Record<string, RedemptionRecord> = loadRedemptionRecords(
       platform.id,
     );
-    const seenInRun = new Set<string>();
-    const filteredCodes: string[] = [];
-
-    for (const rawCode of codesToRun) {
-      const code = normalizeCouponCode(rawCode);
-      if (!code || seenInRun.has(code)) continue;
-      seenInRun.add(code);
-      if (!forceRetry && records[code]) {
-        continue;
-      }
-      filteredCodes.push(code);
-    }
+    const filteredCodes = dedupedCodes.filter(
+      (code) => isResuming || forceRetry || !records[code],
+    );
 
     if (filteredCodes.length === 0) {
+      pausedRemainingCodes = [];
       runStatusText = '已完成（無待執行的優惠碼）';
       renderState();
       return;
     }
 
+    for (const c of filteredCodes) {
+      liveStatusByCode.set(c, 'pending');
+    }
     runStatusText = `執行中 (0/${filteredCodes.length})`;
     renderState();
 
@@ -505,6 +548,7 @@ export function mountAutoCoupon(
       const code = filteredCodes[i]!;
       const blockMsg = platform.detectChallengeOrAuthBlock(document);
       if (blockMsg) {
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = `已暫停：${blockMsg}`;
         renderState();
         return;
@@ -512,11 +556,13 @@ export function mountAutoCoupon(
 
       const { input, submit } = platform.findInputAndSubmit(document);
       if (!input || !submit) {
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = '已暫停：找不到優惠碼輸入框或套用按鈕';
         renderState();
         return;
       }
 
+      liveStatusByCode.set(code, 'submitting');
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
@@ -530,37 +576,55 @@ export function mountAutoCoupon(
 
       const postBlock = platform.detectChallengeOrAuthBlock(document);
       if (postBlock) {
+        liveStatusByCode.set(code, 'pending');
+        pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText = `已暫停：${postBlock}`;
         renderState();
         return;
       }
 
       const result = platform.classifyFeedback(document);
+      liveStatusByCode.set(code, result.outcome);
       summaryCounts[result.outcome] += 1;
       saveRedemptionRecord(platform.id, code, result.outcome, result.message);
       renderState();
     }
 
+    pausedRemainingCodes = [];
     runStatusText = '已完成';
     renderState();
   }
 
   startRunBtn.addEventListener('click', () => {
-    activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes());
+    activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes(), false);
   });
 
-  if (platform.isWalletPage(currentUrl, document)) {
-    const pending = consumePendingRunState(platform.id);
-    if (pending && pending.codes.length > 0) {
-      isOpen = true;
-      forceRetry = Boolean(pending.forceRetry);
-      forceRetryCheckbox.checked = forceRetry;
-      manualQueueCodes = [...pending.codes];
-      activeTaskPromise = executeRedemptionRun([...manualQueueCodes]);
-    }
+  resumeRunBtn.addEventListener('click', () => {
+    const remaining =
+      pausedRemainingCodes.length > 0
+        ? [...pausedRemainingCodes]
+        : getEffectiveWalletCodes();
+    activeTaskPromise = executeRedemptionRun(remaining, true);
+  });
+
+  const pending = platform.isWalletPage(currentUrl, document)
+    ? consumePendingRunState(platform.id)
+    : null;
+
+  if (pending && pending.codes.length > 0) {
+    isOpen = true;
+    forceRetry = Boolean(pending.forceRetry);
+    forceRetryCheckbox.checked = forceRetry;
+    manualQueueCodes = [...pending.codes];
   }
 
-  if (options.autoSyncFeed !== false && !activeTaskPromise) {
+  if (options.autoSyncFeed !== false && pending && pending.codes.length > 0) {
+    activeTaskPromise = syncFeed().then(() =>
+      executeRedemptionRun([...manualQueueCodes], false),
+    );
+  } else if (pending && pending.codes.length > 0) {
+    activeTaskPromise = executeRedemptionRun([...manualQueueCodes], false);
+  } else if (options.autoSyncFeed !== false) {
     activeTaskPromise = syncFeed();
   }
 
@@ -569,7 +633,7 @@ export function mountAutoCoupon(
   return {
     platform,
     setQueue(codes: string[]) {
-      manualQueueCodes = codes.map((c) => normalizeCouponCode(c)).filter(Boolean);
+      manualQueueCodes = dedupeCouponCodes(codes);
       renderState();
     },
     getQueue() {
