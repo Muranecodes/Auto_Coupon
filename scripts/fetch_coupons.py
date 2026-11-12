@@ -49,6 +49,12 @@ def wait_for_network(timeout_sec: int = 90) -> bool:
     return False
 
 
+def is_coupon_expired(expires_at: str | None, today_iso: str) -> bool:
+    if not expires_at:
+        return False
+    return expires_at < today_iso
+
+
 def parse_expiration_date(text: str, reference_year: int = 2026) -> str | None:
     m_full = re.search(r"(20\d{2})\s*[\/\-年.]\s*(\d{1,2})\s*[\/\-月.]\s*(\d{1,2})", text)
     if m_full:
@@ -186,6 +192,19 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
             log("⚠️ 等待網路連線逾時，取消本次更新。")
             return False
 
+    if git_push:
+        try:
+            run_kwargs = {"cwd": str(REPO_ROOT), "capture_output": True, "text": True}
+            if sys.platform == "win32":
+                run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            pull_res = subprocess.run(["git", "pull", "--rebase", "origin", "main"], **run_kwargs)
+            if pull_res.returncode == 0:
+                log("🔄 預先同步遠端最新代碼庫成功。")
+            else:
+                log(f"⚠️ 預先 Git pull 失敗: {pull_res.stderr.strip()}")
+        except Exception as e:
+            log(f"⚠️ 預先 Git pull 例外: {e}")
+
     sources = [
         (
             "foodpanda",
@@ -215,6 +234,8 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
         items = fetch_coupons(url, return_details=True)
         log(f"[{platform}] 共擷取 {len(items)} 組優惠碼: {[i['code'] for i in items]}")
         for item in items:
+            if is_coupon_expired(item.get("expiresAt"), today_str):
+                continue
             key = f"{platform}:{item['code']}"
             prev = existing_by_key.get(key)
             entry = {
@@ -233,9 +254,15 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
                 entry["updatedAt"] = prev.get("updatedAt", now_iso)
             merged[key] = entry
 
-    if not merged:
-        log("⚠️ 未擷取到任何優惠碼，保留現有 coupons.json。")
+    if not merged and not existing_by_key:
+        log("⚠️ 未擷取到任何優惠碼且無既有檔案，保留現有 coupons.json。")
         return False
+
+    # 保留現有檔案中未過期且本次未被 CallingTaiwan 覆蓋的優惠券（例如來自 GitHub Actions 抓取到的官網或 kb56）
+    for key, prev_item in existing_by_key.items():
+        if key not in merged:
+            if not is_coupon_expired(prev_item.get("expiresAt"), today_str):
+                merged[key] = prev_item
 
     sorted_coupons = sorted(
         merged.values(),

@@ -5,3 +5,5 @@ logs/
 .last_scrape_date
 .DS_Store
 .scratch/
+__pycache__/
+*.pyc

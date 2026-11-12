@@ -227,7 +227,8 @@ export function buildCouponFeed(
   const sortedCoupons = [...mergedByKey.values()].sort((a, b) => {
     if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
     if (a.category !== b.category) return a.category.localeCompare(b.category);
-    return a.code.localeCompare(b.code, 'zh-Hant');
+    if (a.code !== b.code) return a.code < b.code ? -1 : 1;
+    return 0;
   });
 
   const prevCoupons = existingFeed?.coupons ?? [];
