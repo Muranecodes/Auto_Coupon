@@ -83,7 +83,7 @@ const SHADOW_STYLES = `
     gap: 6px;
     padding: 10px 14px;
     border-radius: 999px;
-    border: none;
+    border: 2px solid rgba(255, 255, 255, 0.9);
     background: linear-gradient(135deg, #d70f64, #ff2b85);
     color: #fff;
     font-size: 14px;

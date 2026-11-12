@@ -10,7 +10,7 @@ const outFile = resolve(rootDir, 'dist/auto-coupon.user.js');
 const USERSCRIPT_BANNER = `// ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.4
+// @version      1.1.5
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -21,13 +21,22 @@ const USERSCRIPT_BANNER = `// ==UserScript==
 // @match        *://ubereats.com/*
 // @match        https://*.ubereats.com/*
 // @match        https://ubereats.com/*
+// @include      *://*.foodpanda.com.tw/*
+// @include      *://foodpanda.com.tw/*
+// @include      https://*.foodpanda.com.tw/*
+// @include      https://foodpanda.com.tw/*
+// @include      *://*.ubereats.com/*
+// @include      *://ubereats.com/*
+// @include      https://*.ubereats.com/*
+// @include      https://ubereats.com/*
+// @include      https://*ubereats.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      raw.githubusercontent.com
 // @connect      cdn.jsdelivr.net
-// @run-at       document-idle
+// @run-at       document-end
 // @updateURL    https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js
 // @downloadURL  https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js
 // ==/UserScript==

@@ -11,19 +11,32 @@ function bootAutoCoupon(): void {
     }
   };
 
-  // Immediate start
+  // 1. Immediate start attempt
   start();
 
-  // Listen for DOMContentLoaded if page is still loading
+  // 2. DOMContentLoaded event
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
   }
 
-  // Backup timers for SPA / React hydration (Uber Eats & foodpanda)
-  setTimeout(start, 500);
-  setTimeout(start, 1500);
+  // 3. window load event
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('load', start, { once: true });
+  }
+
+  // 4. Repeated periodic check for SPA hydration (every 300ms for first 3 seconds)
+  let count = 0;
+  const timer = setInterval(() => {
+    count++;
+    start();
+    if (count >= 10) {
+      clearInterval(timer);
+    }
+  }, 300);
+  (timer as unknown as { unref?: () => void })?.unref?.();
 }
 
 bootAutoCoupon();
+
 
 

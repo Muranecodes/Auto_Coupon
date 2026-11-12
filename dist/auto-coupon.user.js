@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.4
+// @version      1.1.5
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -12,13 +12,22 @@
 // @match        *://ubereats.com/*
 // @match        https://*.ubereats.com/*
 // @match        https://ubereats.com/*
+// @include      *://*.foodpanda.com.tw/*
+// @include      *://foodpanda.com.tw/*
+// @include      https://*.foodpanda.com.tw/*
+// @include      https://foodpanda.com.tw/*
+// @include      *://*.ubereats.com/*
+// @include      *://ubereats.com/*
+// @include      https://*.ubereats.com/*
+// @include      https://ubereats.com/*
+// @include      https://*ubereats.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      raw.githubusercontent.com
 // @connect      cdn.jsdelivr.net
-// @run-at       document-idle
+// @run-at       document-end
 // @updateURL    https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js
 // @downloadURL  https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js
 // ==/UserScript==
@@ -1665,7 +1674,7 @@ const SHADOW_STYLES = `
     gap: 6px;
     padding: 10px 14px;
     border-radius: 999px;
-    border: none;
+    border: 2px solid rgba(255, 255, 255, 0.9);
     background: linear-gradient(135deg, #d70f64, #ff2b85);
     color: #fff;
     font-size: 14px;
@@ -2525,17 +2534,29 @@ function bootAutoCoupon()       {
     }
   };
 
-  // Immediate start
+  // 1. Immediate start attempt
   start();
 
-  // Listen for DOMContentLoaded if page is still loading
+  // 2. DOMContentLoaded event
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
   }
 
-  // Backup timers for SPA / React hydration (Uber Eats & foodpanda)
-  setTimeout(start, 500);
-  setTimeout(start, 1500);
+  // 3. window load event
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('load', start, { once: true });
+  }
+
+  // 4. Repeated periodic check for SPA hydration (every 300ms for first 3 seconds)
+  let count = 0;
+  const timer = setInterval(() => {
+    count++;
+    start();
+    if (count >= 10) {
+      clearInterval(timer);
+    }
+  }, 300);
+  (timer                                     )?.unref?.();
 }
 
 bootAutoCoupon();
