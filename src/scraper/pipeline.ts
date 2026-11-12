@@ -18,7 +18,7 @@ export interface ScraperSourceInput {
 }
 
 const CHECKOUT_ONLY_REGEX =
-  /信用卡|刷卡|簽帳卡|金融卡|銀行|中國信託|中信|國泰世華|國泰|玉山|台新|富邦|永豐|聯邦|星展|滙豐|匯豐|兆豐|第一銀行|華南|合作金庫|彰銀|LINE\s*Pay\s*卡|CUBE\s*卡|結帳限定|結帳輸入|限定結帳/i;
+  /信用卡|刷卡|簽帳卡|金融卡|銀行|中國信託|中信|國泰世華|國泰|玉山|台新|富邦|永豐|聯邦|星展|滙豐|匯豐|兆豐|第一銀行|華南|合作金庫|彰銀|LINE\s*Pay\s*卡|CUBE\s*卡|結帳限定|結帳輸入|限定結帳|訂閱\s*pandapro/i;
 
 function stripHtmlTags(html: string): string {
   return html
@@ -29,6 +29,58 @@ function stripHtmlTags(html: string): string {
     .replace(/&amp;/gi, '&')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+interface TableRowCoupon {
+  code: string;
+  content: string;
+  expireText: string;
+}
+
+function extractCallingTaiwanTableCoupons(html: string): TableRowCoupon[] {
+  const results: TableRowCoupon[] = [];
+  const tbodyMatch = html.match(/<tbody\b[^>]*>([\s\S]*?)<\/tbody>/i);
+  if (!tbodyMatch?.[1]) return results;
+
+  const trRegex = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  const rows: string[] = [];
+  let trMatch: RegExpExecArray | null;
+  while ((trMatch = trRegex.exec(tbodyMatch[1])) !== null) {
+    if (trMatch[1]) rows.push(trMatch[1]);
+  }
+
+  for (const rowHtml of rows.slice(1)) {
+    const tdRegex = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+    const tds: string[] = [];
+    let tdMatch: RegExpExecArray | null;
+    while ((tdMatch = tdRegex.exec(rowHtml)) !== null) {
+      tds.push(tdMatch[1] ?? '');
+    }
+    if (tds.length < 3) continue;
+
+    const expireText = stripHtmlTags(tds[0]!);
+    const content = stripHtmlTags(tds[1]!);
+    const rawCodeCell = tds[2]!
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n');
+
+    const codeLines = rawCodeCell
+      .split(/\r?\n/)
+      .map((line) => stripHtmlTags(line).split('(')[0]!.split('（')[0]!.trim())
+      .filter(Boolean);
+
+    for (const code of codeLines) {
+      if (
+        !content.includes('首購') &&
+        !code.includes('前往訂餐') &&
+        !code.includes('前往兌換')
+      ) {
+        results.push({ code, content, expireText });
+      }
+    }
+  }
+
+  return results;
 }
 
 function splitHtmlIntoBlocks(html: string): string[] {
@@ -113,6 +165,34 @@ export function buildCouponFeed(
   }
 
   for (const source of sources) {
+    const tableRows = extractCallingTaiwanTableCoupons(source.html);
+    if (tableRows.length > 0) {
+      for (const row of tableRows) {
+        const expiresAt = parseExpirationDate(
+          `至 ${row.expireText}`,
+          referenceYear,
+        );
+        if (isCouponExpired(expiresAt, todayIsoDate)) continue;
+        const category = classifyCouponCategory(row.content);
+        const key = `${source.platform}:${row.code}`;
+        const prev = existingByKey.get(key);
+        const candidate: CouponEntry = {
+          code: row.code,
+          platform: source.platform,
+          title: row.content,
+          category,
+          expiresAt,
+          sourceUrl: source.url,
+          updatedAt: nowIso,
+        };
+        if (prev && entriesContentEqual(prev, candidate)) {
+          candidate.updatedAt = prev.updatedAt;
+        }
+        mergedByKey.set(key, candidate);
+      }
+      continue;
+    }
+
     const blocks = splitHtmlIntoBlocks(source.html);
     for (const block of blocks) {
       if (!hasCouponHint(block)) continue;

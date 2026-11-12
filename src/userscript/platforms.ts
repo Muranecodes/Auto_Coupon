@@ -202,26 +202,30 @@ function isElementVisiblyActive(el: HTMLElement): boolean {
 }
 
 function detectCommonChallenge(doc: Document): string | null {
-  const challengeSelectors = [
-    '#px-captcha',
-    '[id*="px-captcha"]',
-    '.cf-turnstile',
-    '[data-testid="challenge-container"]',
-  ];
-  for (const sel of challengeSelectors) {
-    const el = doc.querySelector<HTMLElement>(sel);
-    if (el && isElementVisiblyActive(el)) {
-      return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+  try {
+    const challengeSelectors = [
+      '#px-captcha',
+      '[id*="px-captcha"]',
+      '.cf-turnstile',
+      '[data-testid="challenge-container"]',
+    ];
+    for (const sel of challengeSelectors) {
+      const el = doc.querySelector<HTMLElement>(sel);
+      if (el && isElementVisiblyActive(el)) {
+        return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+      }
     }
-  }
 
-  const pageTitle = (doc as unknown as { title?: string }).title ?? '';
-  if (
-    /Access to this page has been denied|Just a moment|Attention Required/i.test(
-      pageTitle,
-    )
-  ) {
-    return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+    const pageTitle = (doc as unknown as { title?: string }).title ?? '';
+    if (
+      /Access to this page has been denied|Just a moment|Attention Required/i.test(
+        pageTitle,
+      )
+    ) {
+      return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+    }
+  } catch {
+    // Ignore DOM access errors
   }
 
   return null;
@@ -682,16 +686,20 @@ function isCandidatePromoInput(inp: HTMLInputElement): boolean {
 
 function collectSameOriginDocuments(rootDoc: Document): Document[] {
   const docs: Document[] = [rootDoc];
-  const iframes = rootDoc.querySelectorAll<HTMLElement>('iframe');
-  for (const frame of iframes) {
-    try {
-      const childDoc = (
-        frame as unknown as { contentDocument?: Document | null }
-      ).contentDocument;
-      if (childDoc) docs.push(childDoc);
-    } catch {
-      // Ignore cross-origin iframe
+  try {
+    const iframes = rootDoc.querySelectorAll<HTMLElement>('iframe');
+    for (const frame of iframes) {
+      try {
+        const childDoc = (
+          frame as unknown as { contentDocument?: Document | null }
+        ).contentDocument;
+        if (childDoc && childDoc.body) docs.push(childDoc);
+      } catch {
+        // Ignore cross-origin iframe
+      }
     }
+  } catch {
+    // Ignore frame query errors
   }
   return docs;
 }
@@ -959,41 +967,51 @@ function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
 
     findInputAndSubmit(rootDoc: Document) {
       for (const doc of collectSameOriginDocuments(rootDoc)) {
-        let input: HTMLInputElement | null = null;
-        for (const sel of config.inputSelectors) {
-          const matches = doc.querySelectorAll<HTMLInputElement>(sel);
-          for (let i = matches.length - 1; i >= 0; i--) {
-            const candidate = matches[i]!;
-            if (isCandidatePromoInput(candidate)) {
-              input = candidate;
-              break;
+        try {
+          let input: HTMLInputElement | null = null;
+          for (const sel of config.inputSelectors) {
+            const matches = doc.querySelectorAll<HTMLInputElement>(sel);
+            for (let i = matches.length - 1; i >= 0; i--) {
+              const candidate = matches[i]!;
+              if (isCandidatePromoInput(candidate)) {
+                input = candidate;
+                break;
+              }
             }
+            if (input) break;
           }
-          if (input) break;
-        }
-        if (!input) {
-          input = findInputByLabelOrFallback(doc);
-        }
+          if (!input) {
+            input = findInputByLabelOrFallback(doc);
+          }
 
-        if (input) {
-          const submit = findSubmitNearInput(doc, input, config);
-          return { input, submit };
+          if (input) {
+            const submit = findSubmitNearInput(doc, input, config);
+            return { input, submit };
+          }
+        } catch {
+          // Ignore cross-origin or frame query errors
         }
       }
 
       return { input: null, submit: null };
     },
 
-    tryOpenPromoModal(doc: Document): boolean {
-      const candidates = doc.querySelectorAll<HTMLElement>(
-        'button, a, [role="button"], li, div[tabindex]',
-      );
-      for (const el of candidates) {
-        if (!isElementDisplayed(el)) continue;
-        const text = (el.textContent ?? '').trim();
-        if (config.modalTriggerPattern.test(text)) {
-          el.click();
-          return true;
+    tryOpenPromoModal(rootDoc: Document): boolean {
+      for (const doc of collectSameOriginDocuments(rootDoc)) {
+        try {
+          const candidates = doc.querySelectorAll<HTMLElement>(
+            'button, a, [role="button"], li, div[tabindex]',
+          );
+          for (const el of candidates) {
+            if (!isElementDisplayed(el)) continue;
+            const text = (el.textContent ?? '').trim();
+            if (config.modalTriggerPattern.test(text)) {
+              el.click();
+              return true;
+            }
+          }
+        } catch {
+          // Ignore frame query errors
         }
       }
       return false;

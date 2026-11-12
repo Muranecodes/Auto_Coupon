@@ -53,16 +53,43 @@ export interface AutoCouponController {
 
 const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
 
+const HOST_STYLE_CSS =
+  'position: fixed !important;' +
+  'z-index: 2147483647 !important;' +
+  'top: 0 !important;' +
+  'left: 0 !important;' +
+  'width: 0 !important;' +
+  'height: 0 !important;' +
+  'overflow: visible !important;' +
+  'pointer-events: none !important;' +
+  'display: block !important;' +
+  '-webkit-transform: translateZ(0) !important;' +
+  'transform: translateZ(0) !important;';
+
+function applyHostStyles(el: HTMLElement): void {
+  try {
+    el.style.cssText = HOST_STYLE_CSS;
+    el.setAttribute('style', HOST_STYLE_CSS);
+  } catch {
+    // Ignore in non-browser env
+  }
+}
+
 const SHADOW_STYLES = `
   :host {
     all: initial;
+    display: block !important;
+    position: static !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
   }
   .ac-pill {
     position: fixed;
     right: 16px;
-    bottom: 84px;
-    z-index: 2147483646;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    z-index: 2147483647;
+    pointer-events: auto;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -76,6 +103,8 @@ const SHADOW_STYLES = `
     box-shadow: 0 6px 20px rgba(215, 15, 100, 0.35);
     cursor: pointer;
     touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   .ac-pill-badge {
     background: #fff;
@@ -91,13 +120,16 @@ const SHADOW_STYLES = `
     right: 0;
     bottom: 0;
     z-index: 2147483647;
+    pointer-events: auto;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
     background: #ffffff;
     color: #1f2937;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.22);
     max-height: 82vh;
     overflow-y: auto;
-    padding: 16px 18px 24px;
+    padding: 16px 18px calc(24px + env(safe-area-inset-bottom, 0px));
     transition: transform 0.22s ease;
   }
   .ac-sheet[data-open="false"] {
@@ -200,9 +232,21 @@ function createEl<K extends string>(
 export function mountAutoCoupon(
   options: MountAutoCouponOptions = {},
 ): AutoCouponController {
-  installNetworkFeedbackSniffer();
-  installAntiAppHijack(document);
-  installInputFocusTracker(document);
+  try {
+    installNetworkFeedbackSniffer();
+  } catch {
+    // Ignore sniffer error
+  }
+  try {
+    installAntiAppHijack(document);
+  } catch {
+    // Ignore anti-hijack error
+  }
+  try {
+    installInputFocusTracker(document);
+  } catch {
+    // Ignore focus tracker error
+  }
 
   const getLiveUrl = (): string =>
     options.url ??
@@ -233,11 +277,13 @@ export function mountAutoCoupon(
     __acCleanup?: () => void;
   };
   host.id = 'auto-coupon-root';
+  applyHostStyles(host);
 
   const ensureHostMounted = (): void => {
     try {
       const mountTarget = document.body ?? document.documentElement;
       if (!mountTarget) return;
+      applyHostStyles(host);
       if (
         host.parentElement !== mountTarget ||
         document.querySelector('#auto-coupon-root') !== host
@@ -313,6 +359,11 @@ export function mountAutoCoupon(
     '0',
   );
   pillBtn.appendChild(pillBadge);
+  if (platform.id === 'ubereats') {
+    pillBtn.style.background = 'linear-gradient(135deg, #06C167, #10B981)';
+    pillBtn.style.boxShadow = '0 6px 20px rgba(6, 193, 103, 0.4)';
+    pillBadge.style.color = '#06C167';
+  }
   shadow.appendChild(pillBtn);
 
   const sheetEl = createEl(document, 'section', {
@@ -407,6 +458,9 @@ export function mountAutoCoupon(
     { type: 'button', class: 'ac-btn', 'data-role': 'start-run-btn' },
     '開始批次歸戶',
   ) as HTMLButtonElement;
+  if (platform.id === 'ubereats') {
+    startRunBtn.style.background = '#06C167';
+  }
   const resumeRunBtn = createEl(
     document,
     'button',
@@ -848,7 +902,9 @@ export function mountAutoCoupon(
   } else if (pending && pending.codes.length > 0) {
     activeTaskPromise = executeRedemptionRun([...manualQueueCodes], false);
   } else if (options.autoSyncFeed !== false) {
-    activeTaskPromise = syncFeed();
+    activeTaskPromise = syncFeed().catch((err) => {
+      console.warn('[AutoCoupon] Auto-sync feed error:', err);
+    });
   }
 
   renderState();

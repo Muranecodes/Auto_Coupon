@@ -1,5 +1,7 @@
 node_modules/
 coverage/
 *.log
+logs/
+.last_scrape_date
 .DS_Store
 .scratch/

@@ -729,4 +729,53 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       delete (FakeShadowRoot.prototype as unknown as { innerHTML?: unknown }).innerHTML;
     }
   });
+
+  it('applies top-layer stacking context styles to #auto-coupon-root, defends against cross-origin iframes, and styles pill for Uber Eats', async () => {
+    const env = installFakeDom('https://www.ubereats.com/tw');
+    env.document.body.innerHTML = `
+      <div id="app-root">
+        <!-- Uber Eats overlays and fixed elements with z-indexes -->
+        <div style="position: fixed; z-index: 200; width: 100%; height: 100%;">Overlay</div>
+        <iframe></iframe>
+      </div>
+    `;
+
+    // Simulate cross-origin iframe throwing SecurityError on contentDocument access
+    const frame = env.document.querySelector<HTMLElement>('iframe')!;
+    Object.defineProperty(frame, 'contentDocument', {
+      get() {
+        throw new Error('SecurityError: Blocked a frame with origin from accessing a cross-origin frame.');
+      },
+      configurable: true,
+    });
+
+    const controller = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw',
+      autoSyncFeed: false,
+    });
+
+    const host = env.document.querySelector<HTMLElement>('#auto-coupon-root');
+    assert.ok(host, 'Expected #auto-coupon-root host to be mounted');
+
+    // Verify host has Light DOM styles with maximum z-index and fixed position
+    const hostStyle = host.getAttribute('style') ?? host.style.cssText ?? '';
+    assert.ok(hostStyle.includes('position: fixed'), 'Host must have position: fixed');
+    assert.ok(hostStyle.includes('z-index: 2147483647'), 'Host must have maximum z-index 2147483647');
+    assert.ok(hostStyle.includes('pointer-events: none'), 'Host must be transparent to pointer events');
+
+    // Verify floating pill inside shadow root
+    const pill = host.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="floating-pill"]');
+    assert.ok(pill, 'Expected floating pill inside shadowRoot');
+
+    // Verify Uber Eats brand styling
+    assert.ok(
+      pill.style.background?.includes('#06C167') || pill.style.background?.includes('rgb(6, 193, 103)'),
+      'Pill should have Uber Eats green brand color on Uber Eats',
+    );
+
+    // Verify safe handling of cross-origin iframe in findInputAndSubmit
+    const { input, submit } = controller.platform.findInputAndSubmit(env.document);
+    assert.equal(input, null);
+    assert.equal(submit, null);
+  });
 });

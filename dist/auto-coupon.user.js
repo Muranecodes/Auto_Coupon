@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.2
+// @version      1.1.3
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        https://www.foodpanda.com.tw/*
@@ -10,6 +10,7 @@
 // @match        https://www.ubereats.com/*
 // @match        https://ubereats.com/*
 // @match        https://*.ubereats.com/*
+// @noframes
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -577,26 +578,30 @@ function isElementVisiblyActive(el             )          {
 }
 
 function detectCommonChallenge(doc          )                {
-  const challengeSelectors = [
-    '#px-captcha',
-    '[id*="px-captcha"]',
-    '.cf-turnstile',
-    '[data-testid="challenge-container"]',
-  ];
-  for (const sel of challengeSelectors) {
-    const el = doc.querySelector             (sel);
-    if (el && isElementVisiblyActive(el)) {
-      return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+  try {
+    const challengeSelectors = [
+      '#px-captcha',
+      '[id*="px-captcha"]',
+      '.cf-turnstile',
+      '[data-testid="challenge-container"]',
+    ];
+    for (const sel of challengeSelectors) {
+      const el = doc.querySelector             (sel);
+      if (el && isElementVisiblyActive(el)) {
+        return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+      }
     }
-  }
 
-  const pageTitle = (doc                                 ).title ?? '';
-  if (
-    /Access to this page has been denied|Just a moment|Attention Required/i.test(
-      pageTitle,
-    )
-  ) {
-    return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+    const pageTitle = (doc                                 ).title ?? '';
+    if (
+      /Access to this page has been denied|Just a moment|Attention Required/i.test(
+        pageTitle,
+      )
+    ) {
+      return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
+    }
+  } catch {
+    // Ignore DOM access errors
   }
 
   return null;
@@ -1050,16 +1055,20 @@ function isCandidatePromoInput(inp                  )          {
 
 function collectSameOriginDocuments(rootDoc          )             {
   const docs             = [rootDoc];
-  const iframes = rootDoc.querySelectorAll             ('iframe');
-  for (const frame of iframes) {
-    try {
-      const childDoc = (
-        frame                                                    
-      ).contentDocument;
-      if (childDoc) docs.push(childDoc);
-    } catch {
-      // Ignore cross-origin iframe
+  try {
+    const iframes = rootDoc.querySelectorAll             ('iframe');
+    for (const frame of iframes) {
+      try {
+        const childDoc = (
+          frame                                                    
+        ).contentDocument;
+        if (childDoc && childDoc.body) docs.push(childDoc);
+      } catch {
+        // Ignore cross-origin iframe
+      }
     }
+  } catch {
+    // Ignore frame query errors
   }
   return docs;
 }
@@ -1327,41 +1336,51 @@ function createPlatformAdapter(config                       )                  {
 
     findInputAndSubmit(rootDoc          ) {
       for (const doc of collectSameOriginDocuments(rootDoc)) {
-        let input                          = null;
-        for (const sel of config.inputSelectors) {
-          const matches = doc.querySelectorAll                  (sel);
-          for (let i = matches.length - 1; i >= 0; i--) {
-            const candidate = matches[i] ;
-            if (isCandidatePromoInput(candidate)) {
-              input = candidate;
-              break;
+        try {
+          let input                          = null;
+          for (const sel of config.inputSelectors) {
+            const matches = doc.querySelectorAll                  (sel);
+            for (let i = matches.length - 1; i >= 0; i--) {
+              const candidate = matches[i] ;
+              if (isCandidatePromoInput(candidate)) {
+                input = candidate;
+                break;
+              }
             }
+            if (input) break;
           }
-          if (input) break;
-        }
-        if (!input) {
-          input = findInputByLabelOrFallback(doc);
-        }
+          if (!input) {
+            input = findInputByLabelOrFallback(doc);
+          }
 
-        if (input) {
-          const submit = findSubmitNearInput(doc, input, config);
-          return { input, submit };
+          if (input) {
+            const submit = findSubmitNearInput(doc, input, config);
+            return { input, submit };
+          }
+        } catch {
+          // Ignore cross-origin or frame query errors
         }
       }
 
       return { input: null, submit: null };
     },
 
-    tryOpenPromoModal(doc          )          {
-      const candidates = doc.querySelectorAll             (
-        'button, a, [role="button"], li, div[tabindex]',
-      );
-      for (const el of candidates) {
-        if (!isElementDisplayed(el)) continue;
-        const text = (el.textContent ?? '').trim();
-        if (config.modalTriggerPattern.test(text)) {
-          el.click();
-          return true;
+    tryOpenPromoModal(rootDoc          )          {
+      for (const doc of collectSameOriginDocuments(rootDoc)) {
+        try {
+          const candidates = doc.querySelectorAll             (
+            'button, a, [role="button"], li, div[tabindex]',
+          );
+          for (const el of candidates) {
+            if (!isElementDisplayed(el)) continue;
+            const text = (el.textContent ?? '').trim();
+            if (config.modalTriggerPattern.test(text)) {
+              el.click();
+              return true;
+            }
+          }
+        } catch {
+          // Ignore frame query errors
         }
       }
       return false;
@@ -1615,16 +1634,43 @@ function detectPlatform(url        )                  {
 // --- src/userscript/app.ts ---
 const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
 
+const HOST_STYLE_CSS =
+  'position: fixed !important;' +
+  'z-index: 2147483647 !important;' +
+  'top: 0 !important;' +
+  'left: 0 !important;' +
+  'width: 0 !important;' +
+  'height: 0 !important;' +
+  'overflow: visible !important;' +
+  'pointer-events: none !important;' +
+  'display: block !important;' +
+  '-webkit-transform: translateZ(0) !important;' +
+  'transform: translateZ(0) !important;';
+
+function applyHostStyles(el             )       {
+  try {
+    el.style.cssText = HOST_STYLE_CSS;
+    el.setAttribute('style', HOST_STYLE_CSS);
+  } catch {
+    // Ignore in non-browser env
+  }
+}
+
 const SHADOW_STYLES = `
   :host {
     all: initial;
+    display: block !important;
+    position: static !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
   }
   .ac-pill {
     position: fixed;
     right: 16px;
-    bottom: 84px;
-    z-index: 2147483646;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    z-index: 2147483647;
+    pointer-events: auto;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1638,6 +1684,8 @@ const SHADOW_STYLES = `
     box-shadow: 0 6px 20px rgba(215, 15, 100, 0.35);
     cursor: pointer;
     touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   .ac-pill-badge {
     background: #fff;
@@ -1653,13 +1701,16 @@ const SHADOW_STYLES = `
     right: 0;
     bottom: 0;
     z-index: 2147483647;
+    pointer-events: auto;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
     background: #ffffff;
     color: #1f2937;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.22);
     max-height: 82vh;
     overflow-y: auto;
-    padding: 16px 18px 24px;
+    padding: 16px 18px calc(24px + env(safe-area-inset-bottom, 0px));
     transition: transform 0.22s ease;
   }
   .ac-sheet[data-open="false"] {
@@ -1760,9 +1811,21 @@ function createEl                  (
 }function mountAutoCoupon(
   options                         = {},
 )                       {
-  installNetworkFeedbackSniffer();
-  installAntiAppHijack(document);
-  installInputFocusTracker(document);
+  try {
+    installNetworkFeedbackSniffer();
+  } catch {
+    // Ignore sniffer error
+  }
+  try {
+    installAntiAppHijack(document);
+  } catch {
+    // Ignore anti-hijack error
+  }
+  try {
+    installInputFocusTracker(document);
+  } catch {
+    // Ignore focus tracker error
+  }
 
   const getLiveUrl = ()         =>
     options.url ??
@@ -1793,11 +1856,13 @@ function createEl                  (
                              
    ;
   host.id = 'auto-coupon-root';
+  applyHostStyles(host);
 
   const ensureHostMounted = ()       => {
     try {
       const mountTarget = document.body ?? document.documentElement;
       if (!mountTarget) return;
+      applyHostStyles(host);
       if (
         host.parentElement !== mountTarget ||
         document.querySelector('#auto-coupon-root') !== host
@@ -1873,6 +1938,11 @@ function createEl                  (
     '0',
   );
   pillBtn.appendChild(pillBadge);
+  if (platform.id === 'ubereats') {
+    pillBtn.style.background = 'linear-gradient(135deg, #06C167, #10B981)';
+    pillBtn.style.boxShadow = '0 6px 20px rgba(6, 193, 103, 0.4)';
+    pillBadge.style.color = '#06C167';
+  }
   shadow.appendChild(pillBtn);
 
   const sheetEl = createEl(document, 'section', {
@@ -1967,6 +2037,9 @@ function createEl                  (
     { type: 'button', class: 'ac-btn', 'data-role': 'start-run-btn' },
     '開始批次歸戶',
   )                     ;
+  if (platform.id === 'ubereats') {
+    startRunBtn.style.background = '#06C167';
+  }
   const resumeRunBtn = createEl(
     document,
     'button',
@@ -2408,7 +2481,9 @@ function createEl                  (
   } else if (pending && pending.codes.length > 0) {
     activeTaskPromise = executeRedemptionRun([...manualQueueCodes], false);
   } else if (options.autoSyncFeed !== false) {
-    activeTaskPromise = syncFeed();
+    activeTaskPromise = syncFeed().catch((err) => {
+      console.warn('[AutoCoupon] Auto-sync feed error:', err);
+    });
   }
 
   renderState();
@@ -2441,13 +2516,34 @@ function createEl                  (
 // --- src/userscript/index.ts ---
 function bootAutoCoupon()       {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (!document.body && !document.documentElement) {
-    window.addEventListener?.('DOMContentLoaded', () => {
-      mountAutoCoupon();
-    });
+
+  // Never execute inside subframes or iframes (e.g. tracking, payment, map iframes on Uber Eats)
+  try {
+    if (window.top && window.top !== window) return;
+  } catch {
+    // Cross-origin iframe throws error accessing window.top
     return;
   }
-  mountAutoCoupon();
+
+  const start = ()       => {
+    try {
+      mountAutoCoupon();
+    } catch (err) {
+      console.error('[AutoCoupon] Failed to mount:', err);
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+    // Backup timer in case DOMContentLoaded fired before Stay attached listener
+    setTimeout(() => {
+      if (!document.querySelector('#auto-coupon-root')) {
+        start();
+      }
+    }, 500);
+  } else {
+    start();
+  }
 }
 
 bootAutoCoupon();
