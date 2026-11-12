@@ -66,6 +66,23 @@ export function dedupeCouponCodes(codes: string[]): string[] {
   return unique;
 }
 
+const RATE_LIMITED_SANITY_REGEX =
+  /(?:TooManyRequests|too_many_requests|嘗試次數過多|請稍後再試|太過頻繁|系統忙碌|操作過快|頻率過高|rate\s*limit(?:ed)?|429)/i;
+
+export type SpeedMode = 'safe' | 'standard';
+
+export function loadSpeedMode(platform: PlatformId): SpeedMode {
+  const raw = readRaw(`speed_mode:${platform}`);
+  if (raw === 'safe' || raw === 'standard') {
+    return raw;
+  }
+  return platform === 'ubereats' ? 'safe' : 'standard';
+}
+
+export function saveSpeedMode(platform: PlatformId, mode: SpeedMode): void {
+  writeRaw(`speed_mode:${platform}`, mode);
+}
+
 export function loadRedemptionRecords(
   platform: PlatformId,
 ): Record<string, RedemptionRecord> {
@@ -73,7 +90,25 @@ export function loadRedemptionRecords(
   if (v2Raw) {
     try {
       const parsed = JSON.parse(v2Raw) as Record<string, RedemptionRecord>;
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      if (!parsed || typeof parsed !== 'object') return {};
+      let cleaned = false;
+      const sanitized: Record<string, RedemptionRecord> = {};
+      for (const [k, rec] of Object.entries(parsed)) {
+        if (!rec) continue;
+        const msg = rec.message ?? '';
+        if (
+          rec.outcome === 'invalid_or_expired' &&
+          RATE_LIMITED_SANITY_REGEX.test(msg)
+        ) {
+          cleaned = true;
+          continue;
+        }
+        sanitized[k] = rec;
+      }
+      if (cleaned) {
+        writeRaw(`records:v2:${platform}`, JSON.stringify(sanitized));
+      }
+      return sanitized;
     } catch {
       return {};
     }

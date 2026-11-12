@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.2.0
+// @version      1.3.0
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -93,6 +93,17 @@ function writeRaw(key        , value               )       {
     unique.push(norm);
   }
   return unique;
+}
+
+const RATE_LIMITED_SANITY_REGEX =
+  /(?:TooManyRequests|too_many_requests|嘗試次數過多|請稍後再試|太過頻繁|系統忙碌|操作過快|頻率過高|rate\s*limit(?:ed)?|429)/i;function loadSpeedMode(platform            )            {
+  const raw = readRaw(`speed_mode:${platform}`);
+  if (raw === 'safe' || raw === 'standard') {
+    return raw;
+  }
+  return platform === 'ubereats' ? 'safe' : 'standard';
+}function saveSpeedMode(platform            , mode           )       {
+  writeRaw(`speed_mode:${platform}`, mode);
 }function loadRedemptionRecords(
   platform            ,
 )                                   {
@@ -100,7 +111,25 @@ function writeRaw(key        , value               )       {
   if (v2Raw) {
     try {
       const parsed = JSON.parse(v2Raw)                                    ;
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      if (!parsed || typeof parsed !== 'object') return {};
+      let cleaned = false;
+      const sanitized                                   = {};
+      for (const [k, rec] of Object.entries(parsed)) {
+        if (!rec) continue;
+        const msg = rec.message ?? '';
+        if (
+          rec.outcome === 'invalid_or_expired' &&
+          RATE_LIMITED_SANITY_REGEX.test(msg)
+        ) {
+          cleaned = true;
+          continue;
+        }
+        sanitized[k] = rec;
+      }
+      if (cleaned) {
+        writeRaw(`records:v2:${platform}`, JSON.stringify(sanitized));
+      }
+      return sanitized;
     } catch {
       return {};
     }
@@ -648,9 +677,17 @@ const EXPLICIT_FAILURE_NEGATION_REGEX =
 
 const EXPLICIT_INVALID_ERROR_REGEX =
   /(?:此|該|輸入的)?(?:優惠碼|優惠券|序號|折扣碼|代碼)(?:無效|已過期|已失效|已兌換完畢|已達上限|不存在|輸入錯誤|不正確)|無效或已過期|無效的優惠|無法(?:使用|套用|領取|新增|兌換)|(?:領取|套用|新增|兌換)失敗|不符合(?:使用|領取)?資格|已兌換完畢|數量已達上限|invalid|expired|not\s+found|not\s+eligible|cannot\s+be\s+applied|does\s+not\s+exist/i;
+const RATE_LIMITED_REGEX =
+  /(?:TooManyRequests|too_many_requests|嘗試次數過多|請稍後再試|太過頻繁|系統忙碌|操作過快|頻率過高|rate\s*limit(?:ed)?|429)/i;
 
 function classifyFeedbackText(text        )                           {
   const normalized = text.trim();
+  if (RATE_LIMITED_REGEX.test(normalized)) {
+    return {
+      outcome: 'rate_limited',
+      message: normalized || '頻率過高（TooManyRequests），請稍後再試',
+    };
+  }
   if (ALREADY_CLAIMED_REGEX.test(normalized)) {
     return {
       outcome: 'already_claimed',
@@ -836,6 +873,27 @@ function classifyNetworkFeedback(
   entry                            ,
 )                           {
   const raw = entry.bodyText.trim();
+  if (entry.status === 429 || RATE_LIMITED_REGEX.test(raw)) {
+    try {
+      const parsed = JSON.parse(raw)           ;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const extracted = extractJsonStringField(
+          parsed                           ,
+        );
+        return {
+          outcome: 'rate_limited',
+          message: extracted || raw || '頻率過高（TooManyRequests），請稍後再試',
+        };
+      }
+    } catch {
+      // ignore parse error
+    }
+    return {
+      outcome: 'rate_limited',
+      message: raw || '頻率過高（TooManyRequests），請稍後再試',
+    };
+  }
+
   if (raw.startsWith('{') || raw.startsWith('[')) {
     try {
       const parsed = JSON.parse(raw)           ;
@@ -847,6 +905,20 @@ function classifyNetworkFeedback(
             : typeof obj.statusCode === 'number'
               ? obj.statusCode
               : entry.status;
+        const extractedMsg = extractJsonStringField(obj);
+
+        if (
+          statusCode === 429 ||
+          RATE_LIMITED_REGEX.test(extractedMsg) ||
+          RATE_LIMITED_REGEX.test(raw)
+        ) {
+          return {
+            outcome: 'rate_limited',
+            message:
+              extractedMsg || raw || '頻率過高（TooManyRequests），請稍後再試',
+          };
+        }
+
         const hasErrorField = Boolean(
           obj.error ||
             (Array.isArray(obj.errors) && obj.errors.length > 0) ||
@@ -858,7 +930,6 @@ function classifyNetworkFeedback(
             obj.ok === false ||
             (typeof statusCode === 'number' && statusCode >= 400),
         );
-        const extractedMsg = extractJsonStringField(obj);
 
         if (hasErrorField) {
           if (
@@ -1655,7 +1726,14 @@ function detectPlatform(url        )                  {
 }
 
 // --- src/userscript/app.ts ---
-const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
+function getSpeedDelayFn(speedMode           )               {
+  if (speedMode === 'safe') {
+    return () => 3000 + Math.floor(Math.random() * 3000);
+  }
+  return () => 2000 + Math.floor(Math.random() * 1500);
+}
+
+const DEFAULT_DELAY_FN = () => 2000 + Math.floor(Math.random() * 1500);
 
 function applyHostStyles(el             )       {
   try {
@@ -1903,6 +1981,19 @@ const SHADOW_STYLES = `
   .ac-input:focus {
     border-color: #ec4899;
   }
+  .ac-select {
+    padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid #fbcfe8;
+    background: #fff;
+    font-size: 11px;
+    color: #1f2937;
+    outline: none;
+    cursor: pointer;
+  }
+  .ac-select:focus {
+    border-color: #ec4899;
+  }
   .ac-scroll-list {
     max-height: 160px;
     overflow-y: auto;
@@ -2085,7 +2176,13 @@ function createEl                  (
       ? window.location.href
       : 'https://www.foodpanda.com.tw/');
   const currentUrl = getLiveUrl();
-  const delayFn = options.delayMs ?? DEFAULT_DELAY_FN;
+  const platform = detectPlatform(currentUrl);
+  let currentSpeedMode            = loadSpeedMode(platform.id);
+  const getEffectiveDelayFn = ()                 => {
+    if (options.delayMs) return options.delayMs;
+    return getSpeedDelayFn(currentSpeedMode);
+  };
+  const delayFn = () => getEffectiveDelayFn()();
   const feedUrl = options.feedUrl ?? DEFAULT_FEED_URL;
   const navigateFn =
     options.navigate ??
@@ -2094,7 +2191,6 @@ function createEl                  (
         window.location.href = targetUrl;
       }
     });
-  const platform = detectPlatform(currentUrl);
 
   const existingHost = document.querySelector('#auto-coupon-root')   
                       
@@ -2159,9 +2255,19 @@ function createEl                  (
   const keepAliveTimer = setInterval(ensureHostMounted, 50);
   (keepAliveTimer                                     )?.unref?.();
 
+  let rateLimitCooldownTimer                                        = null;
+
+  function clearRateLimitCooldown()       {
+    if (rateLimitCooldownTimer !== null) {
+      clearInterval(rateLimitCooldownTimer);
+      rateLimitCooldownTimer = null;
+    }
+  }
+
   host.__acCleanup = () => {
     clearInterval(keepAliveTimer);
     mutationObserver?.disconnect();
+    clearRateLimitCooldown();
   };
 
   const shadow = host.attachShadow({ mode: 'open' });
@@ -2401,8 +2507,13 @@ function createEl                  (
   );
   tabQueuePanel.appendChild(summaryEl);
 
-  const forceRetryRow = createEl(document, 'div', { class: 'ac-row' });
-  const forceRetryLabel = createEl(document, 'label');
+  const forceRetryRow = createEl(document, 'div', {
+    class: 'ac-row',
+    style: 'justify-content: space-between;',
+  });
+  const forceRetryLabel = createEl(document, 'label', {
+    style: 'display: inline-flex; align-items: center; gap: 4px;',
+  });
   const forceRetryCheckbox = createEl(document, 'input', {
     type: 'checkbox',
     'data-role': 'force-retry-checkbox',
@@ -2416,6 +2527,39 @@ function createEl                  (
   );
   forceRetryLabel.appendChild(forceRetryText);
   forceRetryRow.appendChild(forceRetryLabel);
+
+  const speedControlWrapper = createEl(document, 'div', {
+    style: 'display: inline-flex; align-items: center; gap: 4px; font-size: 11px;',
+  });
+  const speedLabel = createEl(document, 'span', undefined, '速度：');
+  const speedSelect = createEl(document, 'select', {
+    class: 'ac-select',
+    'data-role': 'speed-mode-select',
+  })                     ;
+  const optSafe = createEl(
+    document,
+    'option',
+    { value: 'safe' },
+    '安全防風控 (3~6s)',
+  );
+  const optStandard = createEl(
+    document,
+    'option',
+    { value: 'standard' },
+    '標準 (2~3.5s)',
+  );
+  speedSelect.appendChild(optSafe);
+  speedSelect.appendChild(optStandard);
+  speedSelect.value = currentSpeedMode;
+
+  speedSelect.addEventListener('change', () => {
+    currentSpeedMode = speedSelect.value             ;
+    saveSpeedMode(platform.id, currentSpeedMode);
+  });
+
+  speedControlWrapper.appendChild(speedLabel);
+  speedControlWrapper.appendChild(speedSelect);
+  forceRetryRow.appendChild(speedControlWrapper);
   tabQueuePanel.appendChild(forceRetryRow);
 
   const actionRow = createEl(document, 'div', { class: 'ac-row' });
@@ -2940,10 +3084,38 @@ function createEl                  (
     renderState();
   });
 
+  function startRateLimitCooldown(initialMsg        )       {
+    clearRateLimitCooldown();
+    let remainingSeconds = 600;
+    const formatTimer = (secs        ) => {
+      const m = Math.floor(secs / 60)
+        .toString()
+        .padStart(2, '0');
+      const s = (secs % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    };
+    runStatusText = `🚨 風控限制中（${initialMsg}）— 建議冷卻：${formatTimer(remainingSeconds)} (可隨時點擊「繼續執行」提早嘗試)`;
+    renderState();
+
+    rateLimitCooldownTimer = setInterval(() => {
+      remainingSeconds--;
+      if (remainingSeconds <= 0) {
+        clearRateLimitCooldown();
+        runStatusText = '建議冷卻時間已結束，請點擊「繼續執行」接續嘗試';
+        renderState();
+      } else {
+        runStatusText = `🚨 風控限制中（${initialMsg}）— 建議冷卻：${formatTimer(remainingSeconds)} (可隨時點擊「繼續執行」提早嘗試)`;
+        renderState();
+      }
+    }, 1000);
+    (rateLimitCooldownTimer                                     )?.unref?.();
+  }
+
   async function executeRedemptionRun(
     codesToRun          ,
     isResuming = false,
   )                {
+    clearRateLimitCooldown();
     if (!isResuming) {
       summaryCounts = {
         claimed: 0,
@@ -3070,12 +3242,24 @@ function createEl                  (
         }
 
         const result = platform.classifyFeedback(document, snapshot);
+        if (result.outcome === 'rate_limited') {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          startRateLimitCooldown(result.message);
+          return;
+        }
         liveStatusByCode.set(code, result.outcome);
         summaryCounts[result.outcome] += 1;
         saveRedemptionRecord(platform.id, code, result.outcome, result.message);
         renderState();
       } catch {
         const fallbackResult = platform.classifyFeedback(document);
+        if (fallbackResult.outcome === 'rate_limited') {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          startRateLimitCooldown(fallbackResult.message);
+          return;
+        }
         liveStatusByCode.set(code, fallbackResult.outcome);
         summaryCounts[fallbackResult.outcome] += 1;
         saveRedemptionRecord(
@@ -3094,10 +3278,12 @@ function createEl                  (
   }
 
   startRunBtn.addEventListener('click', () => {
+    clearRateLimitCooldown();
     activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes(), false);
   });
 
   resumeRunBtn.addEventListener('click', () => {
+    clearRateLimitCooldown();
     const remaining =
       pausedRemainingCodes.length > 0
         ? [...pausedRemainingCodes]

@@ -26,9 +26,12 @@ import {
   dedupeCouponCodes,
   deleteRedemptionRecord,
   loadRedemptionRecords,
+  loadSpeedMode,
   normalizeCouponCode,
   savePendingRunState,
   saveRedemptionRecord,
+  saveSpeedMode,
+  type SpeedMode,
 } from './storage.ts';
 
 export type LiveCouponStatus =
@@ -53,7 +56,14 @@ export interface AutoCouponController {
   waitForIdle(): Promise<void>;
 }
 
-const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
+export function getSpeedDelayFn(speedMode: SpeedMode): () => number {
+  if (speedMode === 'safe') {
+    return () => 3000 + Math.floor(Math.random() * 3000);
+  }
+  return () => 2000 + Math.floor(Math.random() * 1500);
+}
+
+const DEFAULT_DELAY_FN = () => 2000 + Math.floor(Math.random() * 1500);
 
 function applyHostStyles(el: HTMLElement): void {
   try {
@@ -301,6 +311,19 @@ const SHADOW_STYLES = `
   .ac-input:focus {
     border-color: #ec4899;
   }
+  .ac-select {
+    padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid #fbcfe8;
+    background: #fff;
+    font-size: 11px;
+    color: #1f2937;
+    outline: none;
+    cursor: pointer;
+  }
+  .ac-select:focus {
+    border-color: #ec4899;
+  }
   .ac-scroll-list {
     max-height: 160px;
     overflow-y: auto;
@@ -485,7 +508,13 @@ export function mountAutoCoupon(
       ? window.location.href
       : 'https://www.foodpanda.com.tw/');
   const currentUrl = getLiveUrl();
-  const delayFn = options.delayMs ?? DEFAULT_DELAY_FN;
+  const platform = detectPlatform(currentUrl);
+  let currentSpeedMode: SpeedMode = loadSpeedMode(platform.id);
+  const getEffectiveDelayFn = (): (() => number) => {
+    if (options.delayMs) return options.delayMs;
+    return getSpeedDelayFn(currentSpeedMode);
+  };
+  const delayFn = () => getEffectiveDelayFn()();
   const feedUrl = options.feedUrl ?? DEFAULT_FEED_URL;
   const navigateFn =
     options.navigate ??
@@ -494,7 +523,6 @@ export function mountAutoCoupon(
         window.location.href = targetUrl;
       }
     });
-  const platform = detectPlatform(currentUrl);
 
   const existingHost = document.querySelector('#auto-coupon-root') as
     | (HTMLElement & {
@@ -559,9 +587,19 @@ export function mountAutoCoupon(
   const keepAliveTimer = setInterval(ensureHostMounted, 50);
   (keepAliveTimer as unknown as { unref?: () => void })?.unref?.();
 
+  let rateLimitCooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+  function clearRateLimitCooldown(): void {
+    if (rateLimitCooldownTimer !== null) {
+      clearInterval(rateLimitCooldownTimer);
+      rateLimitCooldownTimer = null;
+    }
+  }
+
   host.__acCleanup = () => {
     clearInterval(keepAliveTimer);
     mutationObserver?.disconnect();
+    clearRateLimitCooldown();
   };
 
   const shadow = host.attachShadow({ mode: 'open' });
@@ -801,8 +839,13 @@ export function mountAutoCoupon(
   );
   tabQueuePanel.appendChild(summaryEl);
 
-  const forceRetryRow = createEl(document, 'div', { class: 'ac-row' });
-  const forceRetryLabel = createEl(document, 'label');
+  const forceRetryRow = createEl(document, 'div', {
+    class: 'ac-row',
+    style: 'justify-content: space-between;',
+  });
+  const forceRetryLabel = createEl(document, 'label', {
+    style: 'display: inline-flex; align-items: center; gap: 4px;',
+  });
   const forceRetryCheckbox = createEl(document, 'input', {
     type: 'checkbox',
     'data-role': 'force-retry-checkbox',
@@ -816,6 +859,39 @@ export function mountAutoCoupon(
   );
   forceRetryLabel.appendChild(forceRetryText);
   forceRetryRow.appendChild(forceRetryLabel);
+
+  const speedControlWrapper = createEl(document, 'div', {
+    style: 'display: inline-flex; align-items: center; gap: 4px; font-size: 11px;',
+  });
+  const speedLabel = createEl(document, 'span', undefined, '速度：');
+  const speedSelect = createEl(document, 'select', {
+    class: 'ac-select',
+    'data-role': 'speed-mode-select',
+  }) as HTMLSelectElement;
+  const optSafe = createEl(
+    document,
+    'option',
+    { value: 'safe' },
+    '安全防風控 (3~6s)',
+  );
+  const optStandard = createEl(
+    document,
+    'option',
+    { value: 'standard' },
+    '標準 (2~3.5s)',
+  );
+  speedSelect.appendChild(optSafe);
+  speedSelect.appendChild(optStandard);
+  speedSelect.value = currentSpeedMode;
+
+  speedSelect.addEventListener('change', () => {
+    currentSpeedMode = speedSelect.value as SpeedMode;
+    saveSpeedMode(platform.id, currentSpeedMode);
+  });
+
+  speedControlWrapper.appendChild(speedLabel);
+  speedControlWrapper.appendChild(speedSelect);
+  forceRetryRow.appendChild(speedControlWrapper);
   tabQueuePanel.appendChild(forceRetryRow);
 
   const actionRow = createEl(document, 'div', { class: 'ac-row' });
@@ -1340,10 +1416,38 @@ export function mountAutoCoupon(
     renderState();
   });
 
+  function startRateLimitCooldown(initialMsg: string): void {
+    clearRateLimitCooldown();
+    let remainingSeconds = 600;
+    const formatTimer = (secs: number) => {
+      const m = Math.floor(secs / 60)
+        .toString()
+        .padStart(2, '0');
+      const s = (secs % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    };
+    runStatusText = `🚨 風控限制中（${initialMsg}）— 建議冷卻：${formatTimer(remainingSeconds)} (可隨時點擊「繼續執行」提早嘗試)`;
+    renderState();
+
+    rateLimitCooldownTimer = setInterval(() => {
+      remainingSeconds--;
+      if (remainingSeconds <= 0) {
+        clearRateLimitCooldown();
+        runStatusText = '建議冷卻時間已結束，請點擊「繼續執行」接續嘗試';
+        renderState();
+      } else {
+        runStatusText = `🚨 風控限制中（${initialMsg}）— 建議冷卻：${formatTimer(remainingSeconds)} (可隨時點擊「繼續執行」提早嘗試)`;
+        renderState();
+      }
+    }, 1000);
+    (rateLimitCooldownTimer as unknown as { unref?: () => void })?.unref?.();
+  }
+
   async function executeRedemptionRun(
     codesToRun: string[],
     isResuming = false,
   ): Promise<void> {
+    clearRateLimitCooldown();
     if (!isResuming) {
       summaryCounts = {
         claimed: 0,
@@ -1470,12 +1574,24 @@ export function mountAutoCoupon(
         }
 
         const result = platform.classifyFeedback(document, snapshot);
+        if (result.outcome === 'rate_limited') {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          startRateLimitCooldown(result.message);
+          return;
+        }
         liveStatusByCode.set(code, result.outcome);
         summaryCounts[result.outcome] += 1;
         saveRedemptionRecord(platform.id, code, result.outcome, result.message);
         renderState();
       } catch {
         const fallbackResult = platform.classifyFeedback(document);
+        if (fallbackResult.outcome === 'rate_limited') {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          startRateLimitCooldown(fallbackResult.message);
+          return;
+        }
         liveStatusByCode.set(code, fallbackResult.outcome);
         summaryCounts[fallbackResult.outcome] += 1;
         saveRedemptionRecord(
@@ -1494,10 +1610,12 @@ export function mountAutoCoupon(
   }
 
   startRunBtn.addEventListener('click', () => {
+    clearRateLimitCooldown();
     activeTaskPromise = executeRedemptionRun(getEffectiveWalletCodes(), false);
   });
 
   resumeRunBtn.addEventListener('click', () => {
+    clearRateLimitCooldown();
     const remaining =
       pausedRemainingCodes.length > 0
         ? [...pausedRemainingCodes]

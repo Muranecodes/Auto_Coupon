@@ -7,7 +7,9 @@ import {
   clearRedemptionRecords,
   deleteRedemptionRecord,
   loadRedemptionRecords,
+  loadSpeedMode,
   saveRedemptionRecord,
+  saveSpeedMode,
 } from '../src/userscript/storage.ts';
 
 describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () => {
@@ -949,5 +951,187 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       '[data-panel="checkout"]',
     )!;
     assert.equal(checkoutPanel.getAttribute('data-active'), 'true');
+  });
+
+  it('detects Uber Eats TooManyRequests rate limits via network status 429 and DOM text, pauses the run without poisoning history, and offers cooldown countdown and speed selection', async () => {
+    installFakeDom('https://www.ubereats.com/tw/promotions');
+    clearRedemptionRecords('ubereats');
+
+    // 1. Verify default speed mode
+    assert.equal(loadSpeedMode('ubereats'), 'safe');
+    assert.equal(loadSpeedMode('foodpanda'), 'standard');
+
+    // 2. Setup Uber Eats promotions DOM
+    document.body.innerHTML = `
+      <section data-testid="promotions-page">
+        <input data-testid="promo-code-input" placeholder="輸入優惠序號" value="" />
+        <button data-testid="promo-apply-button" type="button">套用</button>
+        <div data-testid="promo-status-message"></div>
+      </section>
+    `;
+
+    const promoInput = document.querySelector<HTMLInputElement>(
+      '[data-testid="promo-code-input"]',
+    )!;
+    const promoApply = document.querySelector<HTMLButtonElement>(
+      '[data-testid="promo-apply-button"]',
+    )!;
+    const promoStatus = document.querySelector<HTMLElement>(
+      '[data-testid="promo-status-message"]',
+    )!;
+
+    const submittedCodes: string[] = [];
+    let currentInputVal = '';
+    promoInput.addEventListener('input', () => {
+      currentInputVal = promoInput.value;
+    });
+
+    let mockRateLimitActive = true;
+    promoApply.addEventListener('click', () => {
+      const code = currentInputVal.trim();
+      submittedCodes.push(code);
+      if (code === 'UBER_VALID_1') {
+        promoStatus.textContent = '已成功套用優惠序號';
+      } else if (code === 'UBER_TOO_FAST') {
+        if (mockRateLimitActive) {
+          // Simulate Uber Eats 429 rate limit payload
+          recordNetworkFeedbackText(
+            JSON.stringify({ error: 'TooManyRequests', status_code: 429 }),
+            429,
+          );
+          promoStatus.textContent = 'TooManyRequests';
+        } else {
+          promoStatus.textContent = '已成功套用優惠序號';
+        }
+      } else if (code === 'UBER_PENDING_3') {
+        promoStatus.textContent = '已成功套用優惠序號';
+      }
+    });
+
+    const controller = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw/promotions',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+    });
+    controller.setQueue(['UBER_VALID_1', 'UBER_TOO_FAST', 'UBER_PENDING_3']);
+
+    const shadow = document.querySelector('#auto-coupon-root')!.shadowRoot!;
+
+    // Verify speed mode dropdown in Shadow DOM
+    const speedSelect = shadow.querySelector<HTMLSelectElement>(
+      '[data-role="speed-mode-select"]',
+    )!;
+    assert.ok(speedSelect, 'Speed mode select must be present in queue panel');
+    assert.equal(speedSelect.value, 'safe');
+
+    // Test changing speed mode
+    speedSelect.value = 'standard';
+    speedSelect.dispatchEvent(new Event('change'));
+    assert.equal(loadSpeedMode('ubereats'), 'standard');
+
+    // Restore to safe
+    speedSelect.value = 'safe';
+    speedSelect.dispatchEvent(new Event('change'));
+    assert.equal(loadSpeedMode('ubereats'), 'safe');
+
+    // Click start run
+    const startBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="start-run-btn"]',
+    )!;
+    startBtn.click();
+    await controller.waitForIdle();
+
+    // Verify only the first code was submitted before rate limit halted the run
+    assert.deepEqual(submittedCodes, ['UBER_VALID_1', 'UBER_TOO_FAST']);
+
+    // Check storage records: UBER_VALID_1 recorded, but UBER_TOO_FAST must NOT be recorded as invalid!
+    const records = loadRedemptionRecords('ubereats');
+    assert.ok(records['UBER_VALID_1']);
+    assert.equal(records['UBER_VALID_1']!.outcome, 'claimed');
+    assert.equal(
+      records['UBER_TOO_FAST'],
+      undefined,
+      'Rate-limited coupon must not be recorded in storage as invalid_or_expired',
+    );
+
+    // Summary counters: invalid_or_expired must be 0
+    const summaryText =
+      shadow.querySelector('[data-role="run-summary"]')?.textContent ?? '';
+    assert.match(summaryText, /成功:\s*1/);
+    assert.match(summaryText, /無效\/過期:\s*0/);
+
+    // Status message should indicate rate limit pause and cooldown countdown
+    const statusText =
+      shadow.querySelector('[data-role="run-status"]')?.textContent ?? '';
+    assert.ok(
+      statusText.includes('TooManyRequests') && statusText.includes('建議冷卻'),
+      `Status indicator should display rate limit warning. Got: ${statusText}`,
+    );
+
+    // Check wallet list: UBER_TOO_FAST and UBER_PENDING_3 should remain pending
+    const remainingRow = shadow.querySelector(
+      '[data-wallet-code="UBER_TOO_FAST"]',
+    );
+    assert.equal(remainingRow?.getAttribute('data-coupon-status'), 'pending');
+
+    // Now simulate user waiting / clicking resume after cooldown
+    mockRateLimitActive = false;
+    const resumeBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="resume-run-btn"]',
+    )!;
+    resumeBtn.click();
+    await controller.waitForIdle();
+
+    // All 3 codes must have been submitted successfully now
+    assert.deepEqual(submittedCodes, [
+      'UBER_VALID_1',
+      'UBER_TOO_FAST',
+      'UBER_TOO_FAST',
+      'UBER_PENDING_3',
+    ]);
+
+    const finalRecords = loadRedemptionRecords('ubereats');
+    assert.equal(finalRecords['UBER_VALID_1']?.outcome, 'claimed');
+    assert.equal(finalRecords['UBER_TOO_FAST']?.outcome, 'claimed');
+    assert.equal(finalRecords['UBER_PENDING_3']?.outcome, 'claimed');
+  });
+
+  it('cleanses historic false-negative invalid_or_expired records caused by TooManyRequests on load', () => {
+    installFakeDom('https://www.ubereats.com/tw/promotions');
+    clearRedemptionRecords('ubereats');
+
+    saveRedemptionRecord('ubereats', 'REAL_CLAIMED', 'claimed', '成功領取');
+    saveRedemptionRecord(
+      'ubereats',
+      'POISONED_CODE_1',
+      'invalid_or_expired',
+      'TooManyRequests',
+    );
+    saveRedemptionRecord(
+      'ubereats',
+      'POISONED_CODE_2',
+      'invalid_or_expired',
+      '嘗試次數過多，請稍後再試 (HTTP 429)',
+    );
+    saveRedemptionRecord(
+      'ubereats',
+      'LEGIT_EXPIRED',
+      'invalid_or_expired',
+      '此優惠券已失效或已兌換完畢',
+    );
+
+    const loaded = loadRedemptionRecords('ubereats');
+    assert.equal(loaded['REAL_CLAIMED']?.outcome, 'claimed');
+    assert.equal(loaded['LEGIT_EXPIRED']?.outcome, 'invalid_or_expired');
+    assert.equal(
+      loaded['POISONED_CODE_1'],
+      undefined,
+      'POISONED_CODE_1 should have been cleansed on load',
+    );
+    assert.equal(
+      loaded['POISONED_CODE_2'],
+      undefined,
+      'POISONED_CODE_2 should have been cleansed on load',
+    );
   });
 });

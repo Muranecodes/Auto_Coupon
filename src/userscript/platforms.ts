@@ -1,7 +1,9 @@
 import type { PlatformId, RedemptionOutcome } from '../shared/types.ts';
 
+export type PlatformSubmissionOutcome = RedemptionOutcome | 'rate_limited';
+
 export interface PlatformSubmissionResult {
-  outcome: RedemptionOutcome;
+  outcome: PlatformSubmissionOutcome;
   message: string;
 }
 
@@ -241,8 +243,17 @@ const EXPLICIT_FAILURE_NEGATION_REGEX =
 const EXPLICIT_INVALID_ERROR_REGEX =
   /(?:此|該|輸入的)?(?:優惠碼|優惠券|序號|折扣碼|代碼)(?:無效|已過期|已失效|已兌換完畢|已達上限|不存在|輸入錯誤|不正確)|無效或已過期|無效的優惠|無法(?:使用|套用|領取|新增|兌換)|(?:領取|套用|新增|兌換)失敗|不符合(?:使用|領取)?資格|已兌換完畢|數量已達上限|invalid|expired|not\s+found|not\s+eligible|cannot\s+be\s+applied|does\s+not\s+exist/i;
 
+export const RATE_LIMITED_REGEX =
+  /(?:TooManyRequests|too_many_requests|嘗試次數過多|請稍後再試|太過頻繁|系統忙碌|操作過快|頻率過高|rate\s*limit(?:ed)?|429)/i;
+
 function classifyFeedbackText(text: string): PlatformSubmissionResult {
   const normalized = text.trim();
+  if (RATE_LIMITED_REGEX.test(normalized)) {
+    return {
+      outcome: 'rate_limited',
+      message: normalized || '頻率過高（TooManyRequests），請稍後再試',
+    };
+  }
   if (ALREADY_CLAIMED_REGEX.test(normalized)) {
     return {
       outcome: 'already_claimed',
@@ -434,6 +445,27 @@ function classifyNetworkFeedback(
   entry: InterceptedNetworkFeedback,
 ): PlatformSubmissionResult {
   const raw = entry.bodyText.trim();
+  if (entry.status === 429 || RATE_LIMITED_REGEX.test(raw)) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const extracted = extractJsonStringField(
+          parsed as Record<string, unknown>,
+        );
+        return {
+          outcome: 'rate_limited',
+          message: extracted || raw || '頻率過高（TooManyRequests），請稍後再試',
+        };
+      }
+    } catch {
+      // ignore parse error
+    }
+    return {
+      outcome: 'rate_limited',
+      message: raw || '頻率過高（TooManyRequests），請稍後再試',
+    };
+  }
+
   if (raw.startsWith('{') || raw.startsWith('[')) {
     try {
       const parsed = JSON.parse(raw) as unknown;
@@ -445,6 +477,20 @@ function classifyNetworkFeedback(
             : typeof obj.statusCode === 'number'
               ? obj.statusCode
               : entry.status;
+        const extractedMsg = extractJsonStringField(obj);
+
+        if (
+          statusCode === 429 ||
+          RATE_LIMITED_REGEX.test(extractedMsg) ||
+          RATE_LIMITED_REGEX.test(raw)
+        ) {
+          return {
+            outcome: 'rate_limited',
+            message:
+              extractedMsg || raw || '頻率過高（TooManyRequests），請稍後再試',
+          };
+        }
+
         const hasErrorField = Boolean(
           obj.error ||
             (Array.isArray(obj.errors) && obj.errors.length > 0) ||
@@ -456,7 +502,6 @@ function classifyNetworkFeedback(
             obj.ok === false ||
             (typeof statusCode === 'number' && statusCode >= 400),
         );
-        const extractedMsg = extractJsonStringField(obj);
 
         if (hasErrorField) {
           if (
