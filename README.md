@@ -1,6 +1,11 @@
 # Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 
-支援 **iOS Safari**（Stay / Userscripts）、**Android 手機瀏覽器**（狐猴瀏覽器 / Kiwi / Firefox + Tampermonkey）與 **電腦瀏覽器** 的台灣 `foodpanda` 與 `Uber Eats` 優惠券自動批次歸戶工具。
+台灣 `foodpanda` 與 `Uber Eats` 網頁版優惠券自動批次歸戶工具，支援電腦與行動裝置瀏覽器 Userscript。
+
+> [!WARNING]
+> **💻 建議使用電腦網頁版（目前主力開發）**  
+> 目前專案全力專注於完善 **電腦網頁版（Chrome / Edge / Brave / Firefox + Tampermonkey / Violentmonkey）**，功能最完整、操作穩定且領券效率最高。  
+> **iOS Safari 行動版（Stay / Userscripts）目前相容性較有限（實驗性支援）**：受限於 iOS WebKit 嚴格 CSP 沙盒隔離、行動版虛擬鍵盤彈出遮擋、非主動聚焦限制及 SPA 頁面架構，在部分頁面可能會有反應較慢或手動聚焦提示。若在 iPhone 上遇到問題，**強烈建議改用電腦瀏覽器開啟網頁版批次歸戶**（優惠碼存入帳號後，開啟手機原生 App 點餐即可直接套用）。
 
 ## 功能特色
 
@@ -15,12 +20,13 @@
 
 ## 安裝方式
 
-1. **iOS (iPhone / iPad)**：
+1. **電腦瀏覽器（強力推薦，最穩定） / Android**：
+   - 電腦版 Chrome / Edge / Brave / Firefox 安裝 [**Tampermonkey**](https://www.tampermonkey.net/) 或 [**Violentmonkey**](https://violentmonkey.github.io/) 擴充功能。
+   - 點擊安裝 Userscript：[**auto-coupon.user.js**](https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js) 即可一鍵安裝。
+2. **iOS (iPhone / iPad)（實驗性支援）**：
    - 於 App Store 安裝免費擴充功能 [**Stay**](https://apps.apple.com/tw/app/stay-for-safari/id1591620171) 或 [**Userscripts**](https://apps.apple.com/tw/app/userscripts/id1463298887)，並在「設定 → Safari → 延伸功能」開啟權限。
    - 點擊安裝腳本原始連結：`https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/dist/auto-coupon.user.js`
-2. **Android / 電腦瀏覽器**：
-   - 安裝 **Tampermonkey** 或 **Violentmonkey** 擴充功能。
-   - 開啟上述 `dist/auto-coupon.user.js` Raw 連結即可一鍵安裝。
+   - *注意：若 iOS Safari 遇操作不順，建議改用電腦版領取，資料會自動同步至外送帳號。*
 
 ## 開發與測試
 

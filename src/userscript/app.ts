@@ -127,6 +127,16 @@ const SHADOW_STYLES = `
     align-items: center;
     margin-bottom: 12px;
   }
+  .ac-notice {
+    font-size: 12px;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    line-height: 1.45;
+  }
   .ac-title {
     font-size: 16px;
     font-weight: 800;
@@ -428,6 +438,19 @@ export function mountAutoCoupon(
   ) as HTMLButtonElement;
   headerRow.appendChild(closeBtn);
   sheetEl.appendChild(headerRow);
+
+  const isIos =
+    typeof navigator !== 'undefined' &&
+    /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (isIos) {
+    const noticeEl = createEl(
+      document,
+      'div',
+      { class: 'ac-notice', 'data-role': 'ios-notice' },
+      '⚠️ 提醒：iOS Safari 行動版因 WebKit 限制相容性較有限（目前優先開發電腦網頁版）。若領券遇到問題，建議改用電腦瀏覽器（Tampermonkey）操作！',
+    );
+    sheetEl.appendChild(noticeEl);
+  }
 
   const statusRow = createEl(document, 'div', { class: 'ac-row' });
   const statusEl = createEl(
