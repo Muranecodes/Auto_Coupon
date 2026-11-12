@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.1
+// @version      1.1.2
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        https://www.foodpanda.com.tw/*
 // @match        https://foodpanda.com.tw/*
+// @match        https://*.foodpanda.com.tw/*
 // @match        https://www.ubereats.com/*
 // @match        https://ubereats.com/*
+// @match        https://*.ubereats.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -438,8 +440,12 @@ function installInputFocusTracker(doc          )       {
     }
   };
 
-  doc.addEventListener('focusin', recordTarget);
-  doc.addEventListener('click', recordTarget);
+  try {
+    doc.addEventListener('focusin', recordTarget);
+    doc.addEventListener('click', recordTarget);
+  } catch {
+    // Ignore listener attachment errors
+  }
 }
 function setNativeInputValue(
   input                  ,
@@ -640,41 +646,45 @@ function isAppDeepLink(url        )          {
   return APP_DEEPLINK_PATTERN.test(url.trim());
 }
 function installAntiAppHijack(doc          )       {
-  const banners = doc.querySelectorAll(
-    'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
-  );
-  for (const el of banners) {
-    el.remove();
-  }
-
-  const anchors = doc.querySelectorAll             ('a[href]');
-  for (const a of anchors) {
-    const href = a.getAttribute('href') ?? '';
-    if (isAppDeepLink(href)) {
-      a.setAttribute('data-blocked-deeplink', href);
-      a.removeAttribute('href');
+  try {
+    const banners = doc.querySelectorAll(
+      'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
+    );
+    for (const el of banners) {
+      el.remove();
     }
-  }
 
-  if (antiHijackInstalled) return;
-  antiHijackInstalled = true;
-
-  doc.addEventListener('click', (ev       ) => {
-    const target = ev.target                      ;
-    if (!target) return;
-    let curr                     = target;
-    while (curr) {
-      const href =
-        curr.getAttribute?.('href') ??
-        curr.getAttribute?.('data-blocked-deeplink') ??
-        '';
-      if (href && isAppDeepLink(href)) {
-        ev.preventDefault();
-        return;
+    const anchors = doc.querySelectorAll             ('a[href]');
+    for (const a of anchors) {
+      const href = a.getAttribute('href') ?? '';
+      if (isAppDeepLink(href)) {
+        a.setAttribute('data-blocked-deeplink', href);
+        a.removeAttribute('href');
       }
-      curr = curr.parentElement;
     }
-  });
+
+    if (antiHijackInstalled) return;
+    antiHijackInstalled = true;
+
+    doc.addEventListener('click', (ev       ) => {
+      const target = ev.target                      ;
+      if (!target) return;
+      let curr                     = target;
+      while (curr) {
+        const href =
+          curr.getAttribute?.('href') ??
+          curr.getAttribute?.('data-blocked-deeplink') ??
+          '';
+        if (href && isAppDeepLink(href)) {
+          ev.preventDefault();
+          return;
+        }
+        curr = curr.parentElement;
+      }
+    });
+  } catch {
+    // Ignore early DOM errors
+  }
 }
 function navigateWithoutAppSwitch(
   targetUrl        ,
@@ -874,87 +884,118 @@ function classifyNetworkFeedback(
 
 function hookWindowNetworkApis(targetWin         )       {
   if (!targetWin || typeof targetWin !== 'object') return;
-  if (snifferInstalledTargets.has(targetWin)) return;
-  snifferInstalledTargets.add(targetWin);
+  try {
+    if (snifferInstalledTargets.has(targetWin)) return;
+    snifferInstalledTargets.add(targetWin);
+  } catch {
+    return;
+  }
 
   const win = targetWin     
                          
                                            
    ;
 
-  if (typeof win.fetch === 'function') {
-    const origFetch = win.fetch.bind(targetWin);
-    win.fetch = async (...args                          ) => {
-      const res = await origFetch(...args);
-      try {
-        const reqUrl =
-          typeof args[0] === 'string'
-            ? args[0]
-            : (args[0]                    )?.url ?? '';
-        if (
-          /voucher|promo|coupon|redeem/i.test(reqUrl) &&
-          typeof res.clone === 'function'
-        ) {
-          const text = await res.clone().text();
-          recordNetworkFeedbackText(text, res.status);
+  try {
+    if (typeof win.fetch === 'function') {
+      const origFetch = win.fetch.bind(targetWin);
+      win.fetch = async (...args                          ) => {
+        const res = await origFetch(...args);
+        try {
+          const reqUrl =
+            typeof args[0] === 'string'
+              ? args[0]
+              : (args[0]                    )?.url ?? '';
+          if (
+            /voucher|promo|coupon|redeem/i.test(reqUrl) &&
+            typeof res.clone === 'function'
+          ) {
+            const text = await res.clone().text();
+            recordNetworkFeedbackText(text, res.status);
+          }
+        } catch {
+          // Ignore clone/read errors
         }
-      } catch {
-        // Ignore clone/read errors
-      }
-      return res;
-    };
-  }
-
-  if (
-    typeof win.XMLHttpRequest === 'function' &&
-    win.XMLHttpRequest.prototype
-  ) {
-    const xhrProto = win.XMLHttpRequest.prototype                      
-                                   
-     ;
-    if (!xhrProto.__autoCouponHooked) {
-      xhrProto.__autoCouponHooked = true;
-      const origOpen = xhrProto.open;
-      const origSend = xhrProto.send;
-      xhrProto.open = function (
-                                                    
-        method        ,
-        url              ,
-        ...rest           
-      ) {
-        this.__acUrl = String(url ?? '');
-        return (origOpen                             ).apply(this, [
-          method,
-          url,
-          ...rest,
-        ]);
-      };
-      xhrProto.send = function (
-                                                    
-        body                                           ,
-      ) {
-        if (
-          typeof this.addEventListener === 'function' &&
-          /voucher|promo|coupon|redeem/i.test(this.__acUrl ?? '')
-        ) {
-          this.addEventListener('load', () => {
-            try {
-              if (typeof this.responseText === 'string' && this.responseText) {
-                recordNetworkFeedbackText(this.responseText, this.status);
-              }
-            } catch {
-              // Ignore responseText read errors
-            }
-          });
-        }
-        return origSend.call(this, body);
+        return res;
       };
     }
+  } catch {
+    // Ignore read-only or non-configurable fetch
+  }
+
+  try {
+    if (
+      typeof win.XMLHttpRequest === 'function' &&
+      win.XMLHttpRequest.prototype
+    ) {
+      const xhrProto = win.XMLHttpRequest.prototype                      
+                                     
+       ;
+      if (!xhrProto.__autoCouponHooked) {
+        try {
+          xhrProto.__autoCouponHooked = true;
+        } catch {
+          // Ignore frozen prototype flag assignment
+        }
+        const origOpen = xhrProto.open;
+        const origSend = xhrProto.send;
+        xhrProto.open = function (
+                                                      
+          method        ,
+          url              ,
+          ...rest           
+        ) {
+          try {
+            this.__acUrl = String(url ?? '');
+          } catch {
+            // Ignore non-extensible XHR instance
+          }
+          return (origOpen                             ).apply(this, [
+            method,
+            url,
+            ...rest,
+          ]);
+        };
+        xhrProto.send = function (
+                                                      
+          body                                           ,
+        ) {
+          try {
+            if (
+              typeof this.addEventListener === 'function' &&
+              /voucher|promo|coupon|redeem/i.test(this.__acUrl ?? '')
+            ) {
+              this.addEventListener('load', () => {
+                try {
+                  if (
+                    typeof this.responseText === 'string' &&
+                    this.responseText
+                  ) {
+                    recordNetworkFeedbackText(this.responseText, this.status);
+                  }
+                } catch {
+                  // Ignore responseText read errors
+                }
+              });
+            }
+          } catch {
+            // Ignore listener errors
+          }
+          return origSend.call(this, body);
+        };
+      }
+    }
+  } catch {
+    // Ignore frozen or read-only XMLHttpRequest.prototype
   }
 }
 function installNetworkFeedbackSniffer()       {
-  if (typeof window !== 'undefined') {
-    hookWindowNetworkApis(window);
+  try {
+    if (typeof window !== 'undefined') {
+      hookWindowNetworkApis(window);
+    }
+  } catch {
+    // Ignore window hook errors
   }
   try {
     if (typeof unsafeWindow !== 'undefined' && unsafeWindow) {
@@ -978,15 +1019,22 @@ const EXCLUDED_INPUT_TYPES = new Set([
   'range',
   'date',
   'number',
+  'search',
+  'tel',
+  'url',
 ]);
 
+const PROMO_INPUT_POSITIVE_HINT =
+  /優惠|序號|折扣|代碼|禮券|promo|voucher|coupon|code/i;
+
 const EXCLUDED_INPUT_HINT =
-  /address|location|email|phone|password|搜尋餐廳|搜尋商店|輸入地址|外送地址|電話|信箱|密碼/i;
+  /search|address|location|email|phone|password|搜尋|輸入地址|外送地址|電話|信箱|密碼/i;
 
 function isCandidatePromoInput(inp                  )          {
   if (!isElementDisplayed(inp)) return false;
   const type = (inp.type || inp.getAttribute('type') || 'text').toLowerCase();
   if (EXCLUDED_INPUT_TYPES.has(type)) return false;
+  const role = (inp.getAttribute('role') ?? '').toLowerCase();
   const meta = [
     inp.getAttribute('name') ?? '',
     inp.getAttribute('id') ?? '',
@@ -994,6 +1042,8 @@ function isCandidatePromoInput(inp                  )          {
     inp.getAttribute('aria-label') ?? '',
     inp.getAttribute('data-testid') ?? '',
   ].join(' ');
+  if (PROMO_INPUT_POSITIVE_HINT.test(meta)) return true;
+  if (role === 'combobox' || role === 'searchbox') return false;
   if (EXCLUDED_INPUT_HINT.test(meta)) return false;
   return true;
 }
@@ -1682,7 +1732,32 @@ const SHADOW_STYLES = `
     font-size: 13px;
     box-sizing: border-box;
   }
-`;function mountAutoCoupon(
+`;
+
+function clearChildren(el             )       {
+  while (el.children && el.children.length > 0) {
+    el.children[0] .remove();
+  }
+  el.textContent = '';
+}
+
+function createEl                  (
+  doc          ,
+  tag   ,
+  attrs                         ,
+  text         ,
+)              {
+  const el = doc.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      el.setAttribute(k, v);
+    }
+  }
+  if (text !== undefined) {
+    el.textContent = text;
+  }
+  return el;
+}function mountAutoCoupon(
   options                         = {},
 )                       {
   installNetworkFeedbackSniffer();
@@ -1706,14 +1781,62 @@ const SHADOW_STYLES = `
     });
   const platform = detectPlatform(currentUrl);
 
-  const existingHost = document.querySelector('#auto-coupon-root');
+  const existingHost = document.querySelector('#auto-coupon-root')   
+                                                  
+          ;
   if (existingHost) {
+    existingHost.__acCleanup?.();
     existingHost.remove();
   }
 
-  const host = document.createElement('div');
+  const host = document.createElement('div')                   
+                             
+   ;
   host.id = 'auto-coupon-root';
-  document.body.appendChild(host);
+
+  const ensureHostMounted = ()       => {
+    try {
+      const mountTarget = document.body ?? document.documentElement;
+      if (!mountTarget) return;
+      if (
+        host.parentElement !== mountTarget ||
+        document.querySelector('#auto-coupon-root') !== host
+      ) {
+        mountTarget.appendChild(host);
+      }
+    } catch {
+      // Ignore transient hydration DOM errors
+    }
+  };
+  ensureHostMounted();
+
+  let mutationObserver                                = null;
+  try {
+    if (
+      typeof MutationObserver === 'function' &&
+      document.documentElement
+    ) {
+      const obs = new MutationObserver(() => {
+        ensureHostMounted();
+      });
+      obs.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+      mutationObserver = obs;
+    }
+  } catch {
+    // Ignore MutationObserver errors in minimal DOM environments
+  }
+
+  const keepAliveTimer = setInterval(ensureHostMounted, 50);
+  (keepAliveTimer                                     )?.unref?.();
+
+  host.__acCleanup = () => {
+    clearInterval(keepAliveTimer);
+    mutationObserver?.disconnect();
+  };
+
   const shadow = host.attachShadow({ mode: 'open' });
 
   let isOpen = false;
@@ -1733,102 +1856,193 @@ const SHADOW_STYLES = `
     invalid_or_expired: 0,
   };
 
-  shadow.innerHTML = `
-    <style>${SHADOW_STYLES}</style>
-    <button type="button" class="ac-pill" data-role="floating-pill">
-      <span>🎟️ 自動領券</span>
-      <span class="ac-pill-badge" data-role="pill-badge">0</span>
-    </button>
-    <section class="ac-sheet" data-role="bottom-sheet" data-open="false">
-      <div class="ac-header">
-        <div class="ac-title" data-role="platform-title">${platform.displayName} 自動領券</div>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="close-sheet-btn">收合</button>
-      </div>
-      <div class="ac-row">
-        <span data-role="run-status">狀態：待命</span>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="sync-feed-btn">同步最新清單</button>
-      </div>
-      <div class="ac-row">
-        <input type="text" class="ac-input" data-role="feed-url-input" value="${feedUrl}" placeholder="遠端 Coupon Feed JSON URL" />
-      </div>
-      <div class="ac-row" data-role="run-summary">成功: 0 | 已領過: 0 | 無效/過期: 0</div>
-      <div class="ac-row">
-        <label>
-          <input type="checkbox" data-role="force-retry-checkbox" />
-          強制重試已記錄的優惠碼
-        </label>
-      </div>
-      <div class="ac-row">
-        <button type="button" class="ac-btn" data-role="start-run-btn">開始批次歸戶</button>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="resume-run-btn">繼續執行</button>
-      </div>
-      <div class="ac-section">
-        <div>歸戶型優惠碼佇列（Wallet Coupons）：</div>
-        <div data-role="wallet-coupon-list"></div>
-      </div>
-      <div class="ac-section">
-        <div>智慧文字擷取（貼上 LINE / 懶人包文字）：</div>
-        <div class="ac-row">
-          <input type="text" class="ac-input" data-role="freeform-input" placeholder="貼上含優惠碼的整段文字..." />
-          <button type="button" class="ac-btn ac-btn-secondary" data-role="parse-text-btn">解析優惠碼</button>
-        </div>
-        <div class="ac-chip-list" data-role="candidate-chip-list"></div>
-      </div>
-      <div class="ac-section">
-        <div>結帳/信用卡限定碼（點擊一鍵複製）：</div>
-        <div data-role="checkout-coupon-list"></div>
-      </div>
-    </section>
-  `;
+  // Build Shadow DOM without innerHTML so strict Trusted Types CSP (e.g. on Uber Eats) never blocks mounting
+  const styleEl = createEl(document, 'style', undefined, SHADOW_STYLES);
+  shadow.appendChild(styleEl);
 
-  const pillBtn = shadow.querySelector                   (
-    '[data-role="floating-pill"]',
-  ) ;
-  const pillBadge = shadow.querySelector             (
-    '[data-role="pill-badge"]',
-  ) ;
-  const sheetEl = shadow.querySelector             (
-    '[data-role="bottom-sheet"]',
-  ) ;
-  const closeBtn = shadow.querySelector                   (
-    '[data-role="close-sheet-btn"]',
-  ) ;
-  const syncFeedBtn = shadow.querySelector                   (
-    '[data-role="sync-feed-btn"]',
-  ) ;
-  const feedUrlInput = shadow.querySelector                  (
-    '[data-role="feed-url-input"]',
-  ) ;
-  const statusEl = shadow.querySelector             (
-    '[data-role="run-status"]',
-  ) ;
-  const summaryEl = shadow.querySelector             (
-    '[data-role="run-summary"]',
-  ) ;
-  const forceRetryCheckbox = shadow.querySelector                  (
-    '[data-role="force-retry-checkbox"]',
-  ) ;
-  const startRunBtn = shadow.querySelector                   (
-    '[data-role="start-run-btn"]',
-  ) ;
-  const resumeRunBtn = shadow.querySelector                   (
-    '[data-role="resume-run-btn"]',
-  ) ;
-  const walletListEl = shadow.querySelector             (
-    '[data-role="wallet-coupon-list"]',
-  ) ;
-  const freeformInput = shadow.querySelector                  (
-    '[data-role="freeform-input"]',
-  ) ;
-  const parseTextBtn = shadow.querySelector                   (
-    '[data-role="parse-text-btn"]',
-  ) ;
-  const candidateChipListEl = shadow.querySelector             (
-    '[data-role="candidate-chip-list"]',
-  ) ;
-  const checkoutListEl = shadow.querySelector             (
-    '[data-role="checkout-coupon-list"]',
-  ) ;
+  const pillBtn = createEl(document, 'button', {
+    type: 'button',
+    class: 'ac-pill',
+    'data-role': 'floating-pill',
+  })                     ;
+  pillBtn.appendChild(createEl(document, 'span', undefined, '🎟️ 自動領券'));
+  const pillBadge = createEl(
+    document,
+    'span',
+    { class: 'ac-pill-badge', 'data-role': 'pill-badge' },
+    '0',
+  );
+  pillBtn.appendChild(pillBadge);
+  shadow.appendChild(pillBtn);
+
+  const sheetEl = createEl(document, 'section', {
+    class: 'ac-sheet',
+    'data-role': 'bottom-sheet',
+    'data-open': 'false',
+  });
+
+  const headerRow = createEl(document, 'div', { class: 'ac-header' });
+  headerRow.appendChild(
+    createEl(
+      document,
+      'div',
+      { class: 'ac-title', 'data-role': 'platform-title' },
+      `${platform.displayName} 自動領券`,
+    ),
+  );
+  const closeBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'close-sheet-btn',
+    },
+    '收合',
+  )                     ;
+  headerRow.appendChild(closeBtn);
+  sheetEl.appendChild(headerRow);
+
+  const statusRow = createEl(document, 'div', { class: 'ac-row' });
+  const statusEl = createEl(
+    document,
+    'span',
+    { 'data-role': 'run-status' },
+    '狀態：待命',
+  );
+  const syncFeedBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'sync-feed-btn',
+    },
+    '同步最新清單',
+  )                     ;
+  statusRow.appendChild(statusEl);
+  statusRow.appendChild(syncFeedBtn);
+  sheetEl.appendChild(statusRow);
+
+  const feedUrlRow = createEl(document, 'div', { class: 'ac-row' });
+  const feedUrlInput = createEl(document, 'input', {
+    type: 'text',
+    class: 'ac-input',
+    'data-role': 'feed-url-input',
+    value: feedUrl,
+    placeholder: '遠端 Coupon Feed JSON URL',
+  })                    ;
+  feedUrlRow.appendChild(feedUrlInput);
+  sheetEl.appendChild(feedUrlRow);
+
+  const summaryEl = createEl(
+    document,
+    'div',
+    { class: 'ac-row', 'data-role': 'run-summary' },
+    '成功: 0 | 已領過: 0 | 無效/過期: 0',
+  );
+  sheetEl.appendChild(summaryEl);
+
+  const forceRetryRow = createEl(document, 'div', { class: 'ac-row' });
+  const forceRetryLabel = createEl(document, 'label');
+  const forceRetryCheckbox = createEl(document, 'input', {
+    type: 'checkbox',
+    'data-role': 'force-retry-checkbox',
+  })                    ;
+  forceRetryLabel.appendChild(forceRetryCheckbox);
+  const forceRetryText = createEl(
+    document,
+    'span',
+    undefined,
+    '強制重試已記錄的優惠碼',
+  );
+  forceRetryLabel.appendChild(forceRetryText);
+  forceRetryRow.appendChild(forceRetryLabel);
+  sheetEl.appendChild(forceRetryRow);
+
+  const actionRow = createEl(document, 'div', { class: 'ac-row' });
+  const startRunBtn = createEl(
+    document,
+    'button',
+    { type: 'button', class: 'ac-btn', 'data-role': 'start-run-btn' },
+    '開始批次歸戶',
+  )                     ;
+  const resumeRunBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'resume-run-btn',
+    },
+    '繼續執行',
+  )                     ;
+  actionRow.appendChild(startRunBtn);
+  actionRow.appendChild(resumeRunBtn);
+  sheetEl.appendChild(actionRow);
+
+  const walletSection = createEl(document, 'div', { class: 'ac-section' });
+  walletSection.appendChild(
+    createEl(document, 'div', undefined, '歸戶型優惠碼佇列（Wallet Coupons）：'),
+  );
+  const walletListEl = createEl(document, 'div', {
+    'data-role': 'wallet-coupon-list',
+  });
+  walletSection.appendChild(walletListEl);
+  sheetEl.appendChild(walletSection);
+
+  const parserSection = createEl(document, 'div', { class: 'ac-section' });
+  parserSection.appendChild(
+    createEl(
+      document,
+      'div',
+      undefined,
+      '智慧文字擷取（貼上 LINE / 懶人包文字）：',
+    ),
+  );
+  const parserRow = createEl(document, 'div', { class: 'ac-row' });
+  const freeformInput = createEl(document, 'input', {
+    type: 'text',
+    class: 'ac-input',
+    'data-role': 'freeform-input',
+    placeholder: '貼上含優惠碼的整段文字...',
+  })                    ;
+  const parseTextBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'parse-text-btn',
+    },
+    '解析優惠碼',
+  )                     ;
+  parserRow.appendChild(freeformInput);
+  parserRow.appendChild(parseTextBtn);
+  parserSection.appendChild(parserRow);
+  const candidateChipListEl = createEl(document, 'div', {
+    class: 'ac-chip-list',
+    'data-role': 'candidate-chip-list',
+  });
+  parserSection.appendChild(candidateChipListEl);
+  sheetEl.appendChild(parserSection);
+
+  const checkoutSection = createEl(document, 'div', { class: 'ac-section' });
+  checkoutSection.appendChild(
+    createEl(
+      document,
+      'div',
+      undefined,
+      '結帳/信用卡限定碼（點擊一鍵複製）：',
+    ),
+  );
+  const checkoutListEl = createEl(document, 'div', {
+    'data-role': 'checkout-coupon-list',
+  });
+  checkoutSection.appendChild(checkoutListEl);
+  sheetEl.appendChild(checkoutSection);
+
+  shadow.appendChild(sheetEl);
 
   function getEffectiveWalletCodes()           {
     return dedupeCouponCodes([
@@ -1844,7 +2058,7 @@ const SHADOW_STYLES = `
   }
 
   function renderWalletCoupons()       {
-    walletListEl.innerHTML = '';
+    clearChildren(walletListEl);
     const records = loadRedemptionRecords(platform.id);
     const titleByCode = new Map(
       feedWalletCoupons.map((c) => [normalizeCouponCode(c.code), c.title]),
@@ -1868,7 +2082,7 @@ const SHADOW_STYLES = `
   }
 
   function renderCandidateChips()       {
-    candidateChipListEl.innerHTML = '';
+    clearChildren(candidateChipListEl);
     for (const chip of candidateChips) {
       const btn = document.createElement('button');
       btn.setAttribute('type', 'button');
@@ -1888,7 +2102,7 @@ const SHADOW_STYLES = `
   }
 
   function renderCheckoutCoupons()       {
-    checkoutListEl.innerHTML = '';
+    clearChildren(checkoutListEl);
     for (const item of feedCheckoutCoupons) {
       const row = document.createElement('div');
       row.setAttribute('class', 'ac-row');
@@ -2170,7 +2384,13 @@ const SHADOW_STYLES = `
     activeTaskPromise = executeRedemptionRun(remaining, true);
   });
 
-  const pending = platform.isWalletPage(currentUrl, document)
+  let isCurrentlyWalletPage = false;
+  try {
+    isCurrentlyWalletPage = platform.isWalletPage(currentUrl, document);
+  } catch {
+    isCurrentlyWalletPage = false;
+  }
+  const pending = isCurrentlyWalletPage
     ? consumePendingRunState(platform.id)
     : null;
 
@@ -2219,7 +2439,16 @@ const SHADOW_STYLES = `
 }
 
 // --- src/userscript/index.ts ---
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+function bootAutoCoupon()       {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (!document.body && !document.documentElement) {
+    window.addEventListener?.('DOMContentLoaded', () => {
+      mountAutoCoupon();
+    });
+    return;
+  }
   mountAutoCoupon();
 }
+
+bootAutoCoupon();
 })();

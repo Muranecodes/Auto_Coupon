@@ -63,8 +63,12 @@ export function installInputFocusTracker(doc: Document): void {
     }
   };
 
-  doc.addEventListener('focusin', recordTarget);
-  doc.addEventListener('click', recordTarget);
+  try {
+    doc.addEventListener('focusin', recordTarget);
+    doc.addEventListener('click', recordTarget);
+  } catch {
+    // Ignore listener attachment errors
+  }
 }
 
 export function setNativeInputValue(
@@ -269,41 +273,45 @@ export function isAppDeepLink(url: string): boolean {
 }
 
 export function installAntiAppHijack(doc: Document): void {
-  const banners = doc.querySelectorAll(
-    'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
-  );
-  for (const el of banners) {
-    el.remove();
-  }
-
-  const anchors = doc.querySelectorAll<HTMLElement>('a[href]');
-  for (const a of anchors) {
-    const href = a.getAttribute('href') ?? '';
-    if (isAppDeepLink(href)) {
-      a.setAttribute('data-blocked-deeplink', href);
-      a.removeAttribute('href');
+  try {
+    const banners = doc.querySelectorAll(
+      'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
+    );
+    for (const el of banners) {
+      el.remove();
     }
-  }
 
-  if (antiHijackInstalled) return;
-  antiHijackInstalled = true;
-
-  doc.addEventListener('click', (ev: Event) => {
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
-    let curr: HTMLElement | null = target;
-    while (curr) {
-      const href =
-        curr.getAttribute?.('href') ??
-        curr.getAttribute?.('data-blocked-deeplink') ??
-        '';
-      if (href && isAppDeepLink(href)) {
-        ev.preventDefault();
-        return;
+    const anchors = doc.querySelectorAll<HTMLElement>('a[href]');
+    for (const a of anchors) {
+      const href = a.getAttribute('href') ?? '';
+      if (isAppDeepLink(href)) {
+        a.setAttribute('data-blocked-deeplink', href);
+        a.removeAttribute('href');
       }
-      curr = curr.parentElement;
     }
-  });
+
+    if (antiHijackInstalled) return;
+    antiHijackInstalled = true;
+
+    doc.addEventListener('click', (ev: Event) => {
+      const target = ev.target as HTMLElement | null;
+      if (!target) return;
+      let curr: HTMLElement | null = target;
+      while (curr) {
+        const href =
+          curr.getAttribute?.('href') ??
+          curr.getAttribute?.('data-blocked-deeplink') ??
+          '';
+        if (href && isAppDeepLink(href)) {
+          ev.preventDefault();
+          return;
+        }
+        curr = curr.parentElement;
+      }
+    });
+  } catch {
+    // Ignore early DOM errors
+  }
 }
 
 export function navigateWithoutAppSwitch(
@@ -507,88 +515,119 @@ function classifyNetworkFeedback(
 
 function hookWindowNetworkApis(targetWin: unknown): void {
   if (!targetWin || typeof targetWin !== 'object') return;
-  if (snifferInstalledTargets.has(targetWin)) return;
-  snifferInstalledTargets.add(targetWin);
+  try {
+    if (snifferInstalledTargets.has(targetWin)) return;
+    snifferInstalledTargets.add(targetWin);
+  } catch {
+    return;
+  }
 
   const win = targetWin as {
     fetch?: typeof fetch;
     XMLHttpRequest?: typeof XMLHttpRequest;
   };
 
-  if (typeof win.fetch === 'function') {
-    const origFetch = win.fetch.bind(targetWin);
-    win.fetch = async (...args: Parameters<typeof fetch>) => {
-      const res = await origFetch(...args);
-      try {
-        const reqUrl =
-          typeof args[0] === 'string'
-            ? args[0]
-            : (args[0] as { url?: string })?.url ?? '';
-        if (
-          /voucher|promo|coupon|redeem/i.test(reqUrl) &&
-          typeof res.clone === 'function'
-        ) {
-          const text = await res.clone().text();
-          recordNetworkFeedbackText(text, res.status);
+  try {
+    if (typeof win.fetch === 'function') {
+      const origFetch = win.fetch.bind(targetWin);
+      win.fetch = async (...args: Parameters<typeof fetch>) => {
+        const res = await origFetch(...args);
+        try {
+          const reqUrl =
+            typeof args[0] === 'string'
+              ? args[0]
+              : (args[0] as { url?: string })?.url ?? '';
+          if (
+            /voucher|promo|coupon|redeem/i.test(reqUrl) &&
+            typeof res.clone === 'function'
+          ) {
+            const text = await res.clone().text();
+            recordNetworkFeedbackText(text, res.status);
+          }
+        } catch {
+          // Ignore clone/read errors
         }
-      } catch {
-        // Ignore clone/read errors
-      }
-      return res;
-    };
-  }
-
-  if (
-    typeof win.XMLHttpRequest === 'function' &&
-    win.XMLHttpRequest.prototype
-  ) {
-    const xhrProto = win.XMLHttpRequest.prototype as XMLHttpRequest & {
-      __autoCouponHooked?: boolean;
-    };
-    if (!xhrProto.__autoCouponHooked) {
-      xhrProto.__autoCouponHooked = true;
-      const origOpen = xhrProto.open;
-      const origSend = xhrProto.send;
-      xhrProto.open = function (
-        this: XMLHttpRequest & { __acUrl?: string },
-        method: string,
-        url: string | URL,
-        ...rest: unknown[]
-      ) {
-        this.__acUrl = String(url ?? '');
-        return (origOpen as (...a: unknown[]) => void).apply(this, [
-          method,
-          url,
-          ...rest,
-        ]);
-      };
-      xhrProto.send = function (
-        this: XMLHttpRequest & { __acUrl?: string },
-        body?: Document | XMLHttpRequestBodyInit | null,
-      ) {
-        if (
-          typeof this.addEventListener === 'function' &&
-          /voucher|promo|coupon|redeem/i.test(this.__acUrl ?? '')
-        ) {
-          this.addEventListener('load', () => {
-            try {
-              if (typeof this.responseText === 'string' && this.responseText) {
-                recordNetworkFeedbackText(this.responseText, this.status);
-              }
-            } catch {
-              // Ignore responseText read errors
-            }
-          });
-        }
-        return origSend.call(this, body);
+        return res;
       };
     }
+  } catch {
+    // Ignore read-only or non-configurable fetch
+  }
+
+  try {
+    if (
+      typeof win.XMLHttpRequest === 'function' &&
+      win.XMLHttpRequest.prototype
+    ) {
+      const xhrProto = win.XMLHttpRequest.prototype as XMLHttpRequest & {
+        __autoCouponHooked?: boolean;
+      };
+      if (!xhrProto.__autoCouponHooked) {
+        try {
+          xhrProto.__autoCouponHooked = true;
+        } catch {
+          // Ignore frozen prototype flag assignment
+        }
+        const origOpen = xhrProto.open;
+        const origSend = xhrProto.send;
+        xhrProto.open = function (
+          this: XMLHttpRequest & { __acUrl?: string },
+          method: string,
+          url: string | URL,
+          ...rest: unknown[]
+        ) {
+          try {
+            this.__acUrl = String(url ?? '');
+          } catch {
+            // Ignore non-extensible XHR instance
+          }
+          return (origOpen as (...a: unknown[]) => void).apply(this, [
+            method,
+            url,
+            ...rest,
+          ]);
+        };
+        xhrProto.send = function (
+          this: XMLHttpRequest & { __acUrl?: string },
+          body?: Document | XMLHttpRequestBodyInit | null,
+        ) {
+          try {
+            if (
+              typeof this.addEventListener === 'function' &&
+              /voucher|promo|coupon|redeem/i.test(this.__acUrl ?? '')
+            ) {
+              this.addEventListener('load', () => {
+                try {
+                  if (
+                    typeof this.responseText === 'string' &&
+                    this.responseText
+                  ) {
+                    recordNetworkFeedbackText(this.responseText, this.status);
+                  }
+                } catch {
+                  // Ignore responseText read errors
+                }
+              });
+            }
+          } catch {
+            // Ignore listener errors
+          }
+          return origSend.call(this, body);
+        };
+      }
+    }
+  } catch {
+    // Ignore frozen or read-only XMLHttpRequest.prototype
   }
 }
 
 export function installNetworkFeedbackSniffer(): void {
-  if (typeof window !== 'undefined') {
-    hookWindowNetworkApis(window);
+  try {
+    if (typeof window !== 'undefined') {
+      hookWindowNetworkApis(window);
+    }
+  } catch {
+    // Ignore window hook errors
   }
   try {
     if (typeof unsafeWindow !== 'undefined' && unsafeWindow) {
@@ -612,15 +651,22 @@ const EXCLUDED_INPUT_TYPES = new Set([
   'range',
   'date',
   'number',
+  'search',
+  'tel',
+  'url',
 ]);
 
+const PROMO_INPUT_POSITIVE_HINT =
+  /優惠|序號|折扣|代碼|禮券|promo|voucher|coupon|code/i;
+
 const EXCLUDED_INPUT_HINT =
-  /address|location|email|phone|password|搜尋餐廳|搜尋商店|輸入地址|外送地址|電話|信箱|密碼/i;
+  /search|address|location|email|phone|password|搜尋|輸入地址|外送地址|電話|信箱|密碼/i;
 
 function isCandidatePromoInput(inp: HTMLInputElement): boolean {
   if (!isElementDisplayed(inp)) return false;
   const type = (inp.type || inp.getAttribute('type') || 'text').toLowerCase();
   if (EXCLUDED_INPUT_TYPES.has(type)) return false;
+  const role = (inp.getAttribute('role') ?? '').toLowerCase();
   const meta = [
     inp.getAttribute('name') ?? '',
     inp.getAttribute('id') ?? '',
@@ -628,6 +674,8 @@ function isCandidatePromoInput(inp: HTMLInputElement): boolean {
     inp.getAttribute('aria-label') ?? '',
     inp.getAttribute('data-testid') ?? '',
   ].join(' ');
+  if (PROMO_INPUT_POSITIVE_HINT.test(meta)) return true;
+  if (role === 'combobox' || role === 'searchbox') return false;
   if (EXCLUDED_INPUT_HINT.test(meta)) return false;
   return true;
 }

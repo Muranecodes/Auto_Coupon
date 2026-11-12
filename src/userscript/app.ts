@@ -172,6 +172,31 @@ const SHADOW_STYLES = `
   }
 `;
 
+function clearChildren(el: HTMLElement): void {
+  while (el.children && el.children.length > 0) {
+    el.children[0]!.remove();
+  }
+  el.textContent = '';
+}
+
+function createEl<K extends string>(
+  doc: Document,
+  tag: K,
+  attrs?: Record<string, string>,
+  text?: string,
+): HTMLElement {
+  const el = doc.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      el.setAttribute(k, v);
+    }
+  }
+  if (text !== undefined) {
+    el.textContent = text;
+  }
+  return el;
+}
+
 export function mountAutoCoupon(
   options: MountAutoCouponOptions = {},
 ): AutoCouponController {
@@ -196,14 +221,62 @@ export function mountAutoCoupon(
     });
   const platform = detectPlatform(currentUrl);
 
-  const existingHost = document.querySelector('#auto-coupon-root');
+  const existingHost = document.querySelector('#auto-coupon-root') as
+    | (HTMLElement & { __acCleanup?: () => void })
+    | null;
   if (existingHost) {
+    existingHost.__acCleanup?.();
     existingHost.remove();
   }
 
-  const host = document.createElement('div');
+  const host = document.createElement('div') as HTMLElement & {
+    __acCleanup?: () => void;
+  };
   host.id = 'auto-coupon-root';
-  document.body.appendChild(host);
+
+  const ensureHostMounted = (): void => {
+    try {
+      const mountTarget = document.body ?? document.documentElement;
+      if (!mountTarget) return;
+      if (
+        host.parentElement !== mountTarget ||
+        document.querySelector('#auto-coupon-root') !== host
+      ) {
+        mountTarget.appendChild(host);
+      }
+    } catch {
+      // Ignore transient hydration DOM errors
+    }
+  };
+  ensureHostMounted();
+
+  let mutationObserver: { disconnect(): void } | null = null;
+  try {
+    if (
+      typeof MutationObserver === 'function' &&
+      document.documentElement
+    ) {
+      const obs = new MutationObserver(() => {
+        ensureHostMounted();
+      });
+      obs.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+      mutationObserver = obs;
+    }
+  } catch {
+    // Ignore MutationObserver errors in minimal DOM environments
+  }
+
+  const keepAliveTimer = setInterval(ensureHostMounted, 50);
+  (keepAliveTimer as unknown as { unref?: () => void })?.unref?.();
+
+  host.__acCleanup = () => {
+    clearInterval(keepAliveTimer);
+    mutationObserver?.disconnect();
+  };
+
   const shadow = host.attachShadow({ mode: 'open' });
 
   let isOpen = false;
@@ -223,102 +296,193 @@ export function mountAutoCoupon(
     invalid_or_expired: 0,
   };
 
-  shadow.innerHTML = `
-    <style>${SHADOW_STYLES}</style>
-    <button type="button" class="ac-pill" data-role="floating-pill">
-      <span>🎟️ 自動領券</span>
-      <span class="ac-pill-badge" data-role="pill-badge">0</span>
-    </button>
-    <section class="ac-sheet" data-role="bottom-sheet" data-open="false">
-      <div class="ac-header">
-        <div class="ac-title" data-role="platform-title">${platform.displayName} 自動領券</div>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="close-sheet-btn">收合</button>
-      </div>
-      <div class="ac-row">
-        <span data-role="run-status">狀態：待命</span>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="sync-feed-btn">同步最新清單</button>
-      </div>
-      <div class="ac-row">
-        <input type="text" class="ac-input" data-role="feed-url-input" value="${feedUrl}" placeholder="遠端 Coupon Feed JSON URL" />
-      </div>
-      <div class="ac-row" data-role="run-summary">成功: 0 | 已領過: 0 | 無效/過期: 0</div>
-      <div class="ac-row">
-        <label>
-          <input type="checkbox" data-role="force-retry-checkbox" />
-          強制重試已記錄的優惠碼
-        </label>
-      </div>
-      <div class="ac-row">
-        <button type="button" class="ac-btn" data-role="start-run-btn">開始批次歸戶</button>
-        <button type="button" class="ac-btn ac-btn-secondary" data-role="resume-run-btn">繼續執行</button>
-      </div>
-      <div class="ac-section">
-        <div>歸戶型優惠碼佇列（Wallet Coupons）：</div>
-        <div data-role="wallet-coupon-list"></div>
-      </div>
-      <div class="ac-section">
-        <div>智慧文字擷取（貼上 LINE / 懶人包文字）：</div>
-        <div class="ac-row">
-          <input type="text" class="ac-input" data-role="freeform-input" placeholder="貼上含優惠碼的整段文字..." />
-          <button type="button" class="ac-btn ac-btn-secondary" data-role="parse-text-btn">解析優惠碼</button>
-        </div>
-        <div class="ac-chip-list" data-role="candidate-chip-list"></div>
-      </div>
-      <div class="ac-section">
-        <div>結帳/信用卡限定碼（點擊一鍵複製）：</div>
-        <div data-role="checkout-coupon-list"></div>
-      </div>
-    </section>
-  `;
+  // Build Shadow DOM without innerHTML so strict Trusted Types CSP (e.g. on Uber Eats) never blocks mounting
+  const styleEl = createEl(document, 'style', undefined, SHADOW_STYLES);
+  shadow.appendChild(styleEl);
 
-  const pillBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="floating-pill"]',
-  )!;
-  const pillBadge = shadow.querySelector<HTMLElement>(
-    '[data-role="pill-badge"]',
-  )!;
-  const sheetEl = shadow.querySelector<HTMLElement>(
-    '[data-role="bottom-sheet"]',
-  )!;
-  const closeBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="close-sheet-btn"]',
-  )!;
-  const syncFeedBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="sync-feed-btn"]',
-  )!;
-  const feedUrlInput = shadow.querySelector<HTMLInputElement>(
-    '[data-role="feed-url-input"]',
-  )!;
-  const statusEl = shadow.querySelector<HTMLElement>(
-    '[data-role="run-status"]',
-  )!;
-  const summaryEl = shadow.querySelector<HTMLElement>(
-    '[data-role="run-summary"]',
-  )!;
-  const forceRetryCheckbox = shadow.querySelector<HTMLInputElement>(
-    '[data-role="force-retry-checkbox"]',
-  )!;
-  const startRunBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="start-run-btn"]',
-  )!;
-  const resumeRunBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="resume-run-btn"]',
-  )!;
-  const walletListEl = shadow.querySelector<HTMLElement>(
-    '[data-role="wallet-coupon-list"]',
-  )!;
-  const freeformInput = shadow.querySelector<HTMLInputElement>(
-    '[data-role="freeform-input"]',
-  )!;
-  const parseTextBtn = shadow.querySelector<HTMLButtonElement>(
-    '[data-role="parse-text-btn"]',
-  )!;
-  const candidateChipListEl = shadow.querySelector<HTMLElement>(
-    '[data-role="candidate-chip-list"]',
-  )!;
-  const checkoutListEl = shadow.querySelector<HTMLElement>(
-    '[data-role="checkout-coupon-list"]',
-  )!;
+  const pillBtn = createEl(document, 'button', {
+    type: 'button',
+    class: 'ac-pill',
+    'data-role': 'floating-pill',
+  }) as HTMLButtonElement;
+  pillBtn.appendChild(createEl(document, 'span', undefined, '🎟️ 自動領券'));
+  const pillBadge = createEl(
+    document,
+    'span',
+    { class: 'ac-pill-badge', 'data-role': 'pill-badge' },
+    '0',
+  );
+  pillBtn.appendChild(pillBadge);
+  shadow.appendChild(pillBtn);
+
+  const sheetEl = createEl(document, 'section', {
+    class: 'ac-sheet',
+    'data-role': 'bottom-sheet',
+    'data-open': 'false',
+  });
+
+  const headerRow = createEl(document, 'div', { class: 'ac-header' });
+  headerRow.appendChild(
+    createEl(
+      document,
+      'div',
+      { class: 'ac-title', 'data-role': 'platform-title' },
+      `${platform.displayName} 自動領券`,
+    ),
+  );
+  const closeBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'close-sheet-btn',
+    },
+    '收合',
+  ) as HTMLButtonElement;
+  headerRow.appendChild(closeBtn);
+  sheetEl.appendChild(headerRow);
+
+  const statusRow = createEl(document, 'div', { class: 'ac-row' });
+  const statusEl = createEl(
+    document,
+    'span',
+    { 'data-role': 'run-status' },
+    '狀態：待命',
+  );
+  const syncFeedBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'sync-feed-btn',
+    },
+    '同步最新清單',
+  ) as HTMLButtonElement;
+  statusRow.appendChild(statusEl);
+  statusRow.appendChild(syncFeedBtn);
+  sheetEl.appendChild(statusRow);
+
+  const feedUrlRow = createEl(document, 'div', { class: 'ac-row' });
+  const feedUrlInput = createEl(document, 'input', {
+    type: 'text',
+    class: 'ac-input',
+    'data-role': 'feed-url-input',
+    value: feedUrl,
+    placeholder: '遠端 Coupon Feed JSON URL',
+  }) as HTMLInputElement;
+  feedUrlRow.appendChild(feedUrlInput);
+  sheetEl.appendChild(feedUrlRow);
+
+  const summaryEl = createEl(
+    document,
+    'div',
+    { class: 'ac-row', 'data-role': 'run-summary' },
+    '成功: 0 | 已領過: 0 | 無效/過期: 0',
+  );
+  sheetEl.appendChild(summaryEl);
+
+  const forceRetryRow = createEl(document, 'div', { class: 'ac-row' });
+  const forceRetryLabel = createEl(document, 'label');
+  const forceRetryCheckbox = createEl(document, 'input', {
+    type: 'checkbox',
+    'data-role': 'force-retry-checkbox',
+  }) as HTMLInputElement;
+  forceRetryLabel.appendChild(forceRetryCheckbox);
+  const forceRetryText = createEl(
+    document,
+    'span',
+    undefined,
+    '強制重試已記錄的優惠碼',
+  );
+  forceRetryLabel.appendChild(forceRetryText);
+  forceRetryRow.appendChild(forceRetryLabel);
+  sheetEl.appendChild(forceRetryRow);
+
+  const actionRow = createEl(document, 'div', { class: 'ac-row' });
+  const startRunBtn = createEl(
+    document,
+    'button',
+    { type: 'button', class: 'ac-btn', 'data-role': 'start-run-btn' },
+    '開始批次歸戶',
+  ) as HTMLButtonElement;
+  const resumeRunBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'resume-run-btn',
+    },
+    '繼續執行',
+  ) as HTMLButtonElement;
+  actionRow.appendChild(startRunBtn);
+  actionRow.appendChild(resumeRunBtn);
+  sheetEl.appendChild(actionRow);
+
+  const walletSection = createEl(document, 'div', { class: 'ac-section' });
+  walletSection.appendChild(
+    createEl(document, 'div', undefined, '歸戶型優惠碼佇列（Wallet Coupons）：'),
+  );
+  const walletListEl = createEl(document, 'div', {
+    'data-role': 'wallet-coupon-list',
+  });
+  walletSection.appendChild(walletListEl);
+  sheetEl.appendChild(walletSection);
+
+  const parserSection = createEl(document, 'div', { class: 'ac-section' });
+  parserSection.appendChild(
+    createEl(
+      document,
+      'div',
+      undefined,
+      '智慧文字擷取（貼上 LINE / 懶人包文字）：',
+    ),
+  );
+  const parserRow = createEl(document, 'div', { class: 'ac-row' });
+  const freeformInput = createEl(document, 'input', {
+    type: 'text',
+    class: 'ac-input',
+    'data-role': 'freeform-input',
+    placeholder: '貼上含優惠碼的整段文字...',
+  }) as HTMLInputElement;
+  const parseTextBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-secondary',
+      'data-role': 'parse-text-btn',
+    },
+    '解析優惠碼',
+  ) as HTMLButtonElement;
+  parserRow.appendChild(freeformInput);
+  parserRow.appendChild(parseTextBtn);
+  parserSection.appendChild(parserRow);
+  const candidateChipListEl = createEl(document, 'div', {
+    class: 'ac-chip-list',
+    'data-role': 'candidate-chip-list',
+  });
+  parserSection.appendChild(candidateChipListEl);
+  sheetEl.appendChild(parserSection);
+
+  const checkoutSection = createEl(document, 'div', { class: 'ac-section' });
+  checkoutSection.appendChild(
+    createEl(
+      document,
+      'div',
+      undefined,
+      '結帳/信用卡限定碼（點擊一鍵複製）：',
+    ),
+  );
+  const checkoutListEl = createEl(document, 'div', {
+    'data-role': 'checkout-coupon-list',
+  });
+  checkoutSection.appendChild(checkoutListEl);
+  sheetEl.appendChild(checkoutSection);
+
+  shadow.appendChild(sheetEl);
 
   function getEffectiveWalletCodes(): string[] {
     return dedupeCouponCodes([
@@ -334,7 +498,7 @@ export function mountAutoCoupon(
   }
 
   function renderWalletCoupons(): void {
-    walletListEl.innerHTML = '';
+    clearChildren(walletListEl);
     const records = loadRedemptionRecords(platform.id);
     const titleByCode = new Map(
       feedWalletCoupons.map((c) => [normalizeCouponCode(c.code), c.title]),
@@ -358,7 +522,7 @@ export function mountAutoCoupon(
   }
 
   function renderCandidateChips(): void {
-    candidateChipListEl.innerHTML = '';
+    clearChildren(candidateChipListEl);
     for (const chip of candidateChips) {
       const btn = document.createElement('button');
       btn.setAttribute('type', 'button');
@@ -378,7 +542,7 @@ export function mountAutoCoupon(
   }
 
   function renderCheckoutCoupons(): void {
-    checkoutListEl.innerHTML = '';
+    clearChildren(checkoutListEl);
     for (const item of feedCheckoutCoupons) {
       const row = document.createElement('div');
       row.setAttribute('class', 'ac-row');
@@ -660,7 +824,13 @@ export function mountAutoCoupon(
     activeTaskPromise = executeRedemptionRun(remaining, true);
   });
 
-  const pending = platform.isWalletPage(currentUrl, document)
+  let isCurrentlyWalletPage = false;
+  try {
+    isCurrentlyWalletPage = platform.isWalletPage(currentUrl, document);
+  } catch {
+    isCurrentlyWalletPage = false;
+  }
+  const pending = isCurrentlyWalletPage
     ? consumePendingRunState(platform.id)
     : null;
 

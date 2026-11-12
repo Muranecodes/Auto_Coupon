@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { installFakeDom } from './helpers/fake-dom.ts';
+import { FakeShadowRoot, installFakeDom } from './helpers/fake-dom.ts';
 import { mountAutoCoupon } from '../src/userscript/app.ts';
 import { recordNetworkFeedbackText } from '../src/userscript/platforms.ts';
 
@@ -667,5 +667,66 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       ?.getAttribute('data-coupon-status');
     assert.equal(statusAttr1, 'claimed');
     assert.equal(statusAttr2, 'claimed');
+  });
+
+  it('mounts and preserves the floating pill on Uber Eats under frozen XHR prototype, Trusted Types CSP, React hydration body wipe, and header search input', async () => {
+    const env = installFakeDom('https://www.ubereats.com/tw');
+    env.document.body.innerHTML = `
+      <header>
+        <input id="ue-header-search" type="text" role="combobox" placeholder="搜尋 Uber Eats" value="" />
+      </header>
+    `;
+
+    // 1. Freeze XMLHttpRequest.prototype and block ShadowRoot.prototype.innerHTML (Trusted Types CSP)
+    const FrozenXHR = function () {};
+    FrozenXHR.prototype = Object.freeze({
+      open() {},
+      send() {},
+    });
+    Object.defineProperty(env.window, 'XMLHttpRequest', {
+      value: FrozenXHR,
+      writable: false,
+      configurable: true,
+    });
+    Object.defineProperty(FakeShadowRoot.prototype, 'innerHTML', {
+      set() {
+        throw new TypeError(
+          "Failed to set the 'innerHTML' property on 'ShadowRoot': This document requires 'TrustedHTML' assignment.",
+        );
+      },
+      configurable: true,
+    });
+
+    try {
+      const controller = mountAutoCoupon({
+        url: 'https://www.ubereats.com/tw',
+        autoSyncFeed: false,
+      });
+
+      const pillBefore = env.document
+        .querySelector('#auto-coupon-root')
+        ?.shadowRoot?.querySelector('[data-role="floating-pill"]');
+      assert.ok(pillBefore, 'Floating pill should mount under Trusted Types CSP and frozen XHR');
+
+      // 2. Header search input ("搜尋 Uber Eats") must not cause Uber Eats homepage to be detected as wallet page
+      assert.equal(
+        controller.platform.isWalletPage('https://www.ubereats.com/tw', env.document),
+        false,
+      );
+
+      // 3. Simulate Uber Eats React/Fusion SSR hydration wiping document.body children
+      env.document.body.innerHTML = '<div id="root"><main>Uber Eats Hydrated</main></div>';
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      const pillAfter = env.document
+        .querySelector('#auto-coupon-root')
+        ?.shadowRoot?.querySelector('[data-role="floating-pill"]');
+      assert.ok(
+        pillAfter,
+        'Floating pill should automatically re-attach after Uber Eats hydration replaces body children',
+      );
+    } finally {
+      delete (FakeShadowRoot.prototype as unknown as { innerHTML?: unknown }).innerHTML;
+    }
   });
 });
