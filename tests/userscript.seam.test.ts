@@ -467,4 +467,64 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
 
     assert.deepEqual(ueSubmitted, ['581享受']);
   });
+
+  it('redeems on Uber Eats when promo input is inside a deeply nested BaseWeb modal below a header search input and submit button is 6 levels up', async () => {
+    installFakeDom('https://www.ubereats.com/tw');
+    document.body.innerHTML = `
+      <header>
+        <input id="header-search" type="text" placeholder="搜尋 Uber Eats" value="" />
+      </header>
+      <div data-baseweb="modal">
+        <div class="l1">
+          <div class="l2">
+            <h3>優惠序號</h3>
+            <div class="l3">
+              <div class="l4">
+                <div class="l5">
+                  <div class="l6">
+                    <input id="deep-promo-input" type="text" value="" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button id="deep-close-btn" type="button" aria-label="關閉">✕</button>
+            <button id="deep-add-btn" type="button" disabled>新增</button>
+          </div>
+        </div>
+        <div id="deep-toast" role="alert"></div>
+      </div>
+    `;
+
+    const deepInput = document.querySelector<HTMLInputElement>('#deep-promo-input')!;
+    const deepAddBtn = document.querySelector<HTMLButtonElement>('#deep-add-btn')!;
+    const deepToast = document.querySelector<HTMLElement>('#deep-toast')!;
+    const submitted: string[] = [];
+
+    deepInput.addEventListener('input', () => {
+      if (deepInput.value.trim().length > 0) {
+        deepAddBtn.removeAttribute('disabled');
+      }
+    });
+    deepAddBtn.addEventListener('click', () => {
+      submitted.push(deepInput.value.trim());
+      deepToast.textContent = '已成功套用優惠序號';
+    });
+
+    const controller = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+    });
+    controller.setQueue(['會員雙享']);
+
+    document
+      .querySelector('#auto-coupon-root')!
+      .shadowRoot!.querySelector<HTMLButtonElement>('[data-role="start-run-btn"]')!
+      .click();
+    await controller.waitForIdle();
+
+    assert.deepEqual(submitted, ['會員雙享']);
+    const headerSearch = document.querySelector<HTMLInputElement>('#header-search')!;
+    assert.equal(headerSearch.value, '');
+  });
 });

@@ -13,9 +13,11 @@ import { extractCandidateChips } from './parser.ts';
 import {
   detectPlatform,
   installAntiAppHijack,
+  installInputFocusTracker,
   installNetworkFeedbackSniffer,
   navigateWithoutAppSwitch,
   setNativeInputValue,
+  triggerSubmitOrEnter,
   type PlatformAdapter,
 } from './platforms.ts';
 import {
@@ -175,12 +177,14 @@ export function mountAutoCoupon(
 ): AutoCouponController {
   installNetworkFeedbackSniffer();
   installAntiAppHijack(document);
+  installInputFocusTracker(document);
 
-  const currentUrl =
+  const getLiveUrl = (): string =>
     options.url ??
     (typeof window !== 'undefined' && window.location
       ? window.location.href
       : 'https://www.foodpanda.com.tw/');
+  const currentUrl = getLiveUrl();
   const delayFn = options.delayMs ?? DEFAULT_DELAY_FN;
   const feedUrl = options.feedUrl ?? DEFAULT_FEED_URL;
   const navigateFn =
@@ -514,14 +518,15 @@ export function mountAutoCoupon(
       return;
     }
 
-    if (!platform.isWalletPage(currentUrl, document)) {
+    const liveUrl = getLiveUrl();
+    if (!platform.isWalletPage(liveUrl, document)) {
       if (platform.tryOpenPromoModal(document)) {
         const modalWait = Math.max(20, delayFn());
         await new Promise((resolve) => setTimeout(resolve, modalWait));
       }
     }
 
-    if (!platform.isWalletPage(currentUrl, document)) {
+    if (!platform.isWalletPage(getLiveUrl(), document)) {
       savePendingRunState({
         platform: platform.id,
         codes: dedupedCodes,
@@ -565,19 +570,17 @@ export function mountAutoCoupon(
       }
 
       let { input, submit } = platform.findInputAndSubmit(document);
-      if (!input || !submit) {
+      if (!input) {
         if (platform.tryOpenPromoModal(document)) {
           const modalWait = Math.max(20, delayFn());
           await new Promise((resolve) => setTimeout(resolve, modalWait));
           ({ input, submit } = platform.findInputAndSubmit(document));
         }
       }
-      if (!input || !submit) {
+      if (!input) {
         pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText =
-          platform.id === 'ubereats'
-            ? '已暫停：請先點開「帳戶 → 優惠方案 → 新增優惠序號」（或結帳頁的「新增優惠序號」）再點「繼續執行」'
-            : '已暫停：請先打開「優惠券匣」的輸入框再點「繼續執行」';
+          '已暫停：請先用手指點一下網頁上的「優惠碼輸入框」（讓游標停在框內），再按「繼續執行」';
         renderState();
         return;
       }
@@ -587,7 +590,10 @@ export function mountAutoCoupon(
       renderState();
 
       setNativeInputValue(input, code);
-      submit.click();
+      if (!submit) {
+        ({ submit } = platform.findInputAndSubmit(document));
+      }
+      triggerSubmitOrEnter(input, submit);
 
       const waitTime = Math.max(0, delayFn());
       if (waitTime > 0) {
