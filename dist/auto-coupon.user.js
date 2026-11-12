@@ -133,7 +133,85 @@ function writeRaw(key        , value               )       {
 
 // --- src/userscript/feed.ts ---
 const DEFAULT_FEED_URL =
-  'https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/data/coupons.json';async function fetchCouponFeed(
+  'https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/data/coupons.json';
+const BUILTIN_COUPON_FEED             = {
+  updatedAt: '2026-11-12T13:50:00.000Z',
+  coupons: [
+    {
+      code: '週二星享日',
+      platform: 'foodpanda',
+      title: '週二星巴克指定專區滿額現折 $70',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '天天取天天爽',
+      platform: 'foodpanda',
+      title: '外帶自取指定店家滿額折抵優惠（最高折 $110）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '天天省天天爽',
+      platform: 'foodpanda',
+      title: '美食外送指定餐廳滿額折扣優惠',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '11111111111',
+      platform: 'foodpanda',
+      title: 'pandapro 半年會員方案特價 $111 結帳優惠碼',
+      category: 'checkout_only',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '581享受',
+      platform: 'ubereats',
+      title: '精選店家滿 $399 享 85 折（最高折 $70~$90）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '會員週年享',
+      platform: 'ubereats',
+      title: 'Uber One 會員美食外送滿 $649 現折 $100（可用 2 次）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '會員週年慶',
+      platform: 'ubereats',
+      title: 'Uber One 會員美食外送滿 $450 享 $0 外送費與服務費（可用 4 次）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: 'afftweats1126',
+      platform: 'ubereats',
+      title: 'Uber Eats 新戶首 2 單滿 $150 折 $75',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '週年慶外帶',
+      platform: 'ubereats',
+      title: '外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）',
+      category: 'checkout_only',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+  ],
+};
+async function fetchCouponFeed(
   feedUrl = DEFAULT_FEED_URL,
   customFetcher                                    ,
 )                      {
@@ -169,12 +247,18 @@ const DEFAULT_FEED_URL =
     }
 
     const parsed = validateFeed(rawData);
-    saveCachedFeed(parsed);
+    if (parsed.coupons.length > 0) {
+      saveCachedFeed(parsed);
+      return parsed;
+    }
+    if (!customFetcher) {
+      return BUILTIN_COUPON_FEED;
+    }
     return parsed;
   } catch {
     const cached = loadCachedFeed();
-    if (cached) return cached;
-    return { updatedAt: new Date().toISOString(), coupons: [] };
+    if (cached && cached.coupons.length > 0) return cached;
+    return BUILTIN_COUPON_FEED;
   }
 }
 
@@ -194,7 +278,8 @@ function validateFeed(raw         )             {
         Boolean(c && typeof c.code === 'string' && typeof c.platform === 'string'),
     ),
   };
-}function isCouponExpired(
+}
+function isCouponExpired(
   expiresAt                           ,
   todayIsoDate        ,
 )          {
@@ -202,7 +287,8 @@ function validateFeed(raw         )             {
   const datePart = expiresAt.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return false;
   return datePart < todayIsoDate;
-}function partitionPlatformCoupons(
+}
+function partitionPlatformCoupons(
   feed            ,
   platform            ,
   todayIsoDate = new Date().toISOString().slice(0, 10),
@@ -324,28 +410,71 @@ function setNativeInputValue(
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function isElementVisiblyActive(el             )          {
+  const styleAttr = el.getAttribute?.('style') ?? '';
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(styleAttr)) {
+    return false;
+  }
+  if (el.getAttribute?.('aria-hidden') === 'true') {
+    return false;
+  }
+  if (
+    typeof window !== 'undefined' &&
+    typeof (window                                                             )
+      .getComputedStyle === 'function'
+  ) {
+    try {
+      const computed = window.getComputedStyle(el);
+      if (
+        computed.display === 'none' ||
+        computed.visibility === 'hidden' ||
+        computed.opacity === '0'
+      ) {
+        return false;
+      }
+    } catch {
+      // Ignore in test DOM
+    }
+  }
+  if (typeof el.getBoundingClientRect === 'function') {
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        return false;
+      }
+    } catch {
+      // Ignore in test DOM
+    }
+  }
+  return Boolean(
+    (el.textContent && el.textContent.trim().length > 0) ||
+      el.querySelector?.('iframe'),
+  );
+}
+
 function detectCommonChallenge(doc          )                {
   const challengeSelectors = [
     '#px-captcha',
     '[id*="px-captcha"]',
     '.cf-turnstile',
     '[data-testid="challenge-container"]',
-    '[data-testid="login-modal"]',
   ];
   for (const sel of challengeSelectors) {
-    const el = doc.querySelector(sel);
-    if (el) {
-      return '偵測到網站安全驗證或登入要求，已暫停佇列，請手動完成驗證後繼續';
+    const el = doc.querySelector             (sel);
+    if (el && isElementVisiblyActive(el)) {
+      return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
     }
   }
-  const bodyText = doc.body?.textContent ?? '';
+
+  const pageTitle = (doc                                 ).title ?? '';
   if (
-    /Press\s*&\s*Hold|confirm you are a human|請證明您是人類|請先登入|驗證您是人類/i.test(
-      bodyText,
+    /Access to this page has been denied|Just a moment|Attention Required/i.test(
+      pageTitle,
     )
   ) {
-    return '偵測到網站安全驗證或登入要求，已暫停佇列，請手動完成驗證後繼續';
+    return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
   }
+
   return null;
 }
 
@@ -365,7 +494,7 @@ function classifyFeedbackText(text        )                           {
     /成功|已存入|已新增|已套用|已歸戶|added|claimed|applied\s+successfully|promo\s+applied/i.test(
       normalized,
     ) &&
-    !/無法|失敗|無效|過期/.test(normalized)
+    !/無法|失敗|無效|過期|錯誤|不適用/.test(normalized)
   ) {
     return {
       outcome: 'claimed',
@@ -381,10 +510,11 @@ function classifyFeedbackText(text        )                           {
 const APP_DEEPLINK_PATTERN =
   /^(?:foodpanda|ubereats|uber):\/\/|(?:onelink\.me|app\.adjust\.com|branch\.io|apps\.apple\.com|itunes\.apple\.com)/i;
 
-let antiHijackInstalled = false;function isAppDeepLink(url        )          {
+let antiHijackInstalled = false;
+function isAppDeepLink(url        )          {
   return APP_DEEPLINK_PATTERN.test(url.trim());
-}function installAntiAppHijack(doc          )       {
-  // Remove iOS Smart App Banner meta tags & app-open banners
+}
+function installAntiAppHijack(doc          )       {
   const banners = doc.querySelectorAll(
     'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
   );
@@ -392,7 +522,6 @@ let antiHijackInstalled = false;function isAppDeepLink(url        )          {
     el.remove();
   }
 
-  // Neutralize deep-link anchors on the page
   const anchors = doc.querySelectorAll             ('a[href]');
   for (const a of anchors) {
     const href = a.getAttribute('href') ?? '';
@@ -421,7 +550,8 @@ let antiHijackInstalled = false;function isAppDeepLink(url        )          {
       curr = curr.parentElement;
     }
   });
-}function navigateWithoutAppSwitch(
+}
+function navigateWithoutAppSwitch(
   targetUrl        ,
   doc          ,
   fallbackNavigate                       ,
@@ -435,7 +565,6 @@ let antiHijackInstalled = false;function isAppDeepLink(url        )          {
     );
     const relativePath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
 
-    // 1. If an in-page SPA link to this pathname exists, click it so router navigates without iOS Universal Link
     const inPageLink = doc.querySelector             (
       `a[href="${parsed.pathname}"]`,
     );
@@ -444,7 +573,6 @@ let antiHijackInstalled = false;function isAppDeepLink(url        )          {
       return;
     }
 
-    // 2. If History API is available on the same origin in a real browser, trigger SPA popstate first
     if (
       typeof window !== 'undefined' &&
       window.location &&
@@ -464,15 +592,18 @@ let antiHijackInstalled = false;function isAppDeepLink(url        )          {
 }
 
 let lastInterceptedResponseText                = null;
-let snifferInstalled = false;function recordNetworkFeedbackText(bodyText        )       {
+let snifferInstalled = false;
+function recordNetworkFeedbackText(bodyText        )       {
   if (bodyText && bodyText.trim()) {
     lastInterceptedResponseText = bodyText.trim();
   }
-}function consumeNetworkFeedbackText()                {
+}
+function consumeNetworkFeedbackText()                {
   const val = lastInterceptedResponseText;
   lastInterceptedResponseText = null;
   return val;
-}function installNetworkFeedbackSniffer()       {
+}
+function installNetworkFeedbackSniffer()       {
   if (snifferInstalled || typeof window === 'undefined') return;
   snifferInstalled = true;
   const win = window                
@@ -487,7 +618,10 @@ let snifferInstalled = false;function recordNetworkFeedbackText(bodyText       
           typeof args[0] === 'string'
             ? args[0]
             : (args[0]                    )?.url ?? '';
-        if (/voucher|promo|coupon/i.test(reqUrl) && typeof res.clone === 'function') {
+        if (
+          /voucher|promo|coupon/i.test(reqUrl) &&
+          typeof res.clone === 'function'
+        ) {
           const text = await res.clone().text();
           recordNetworkFeedbackText(text);
         }
@@ -497,6 +631,114 @@ let snifferInstalled = false;function recordNetworkFeedbackText(bodyText       
       return res;
     };
   }
+}
+
+const EXCLUDED_INPUT_HINT =
+  /search|address|location|email|phone|password|搜尋|地址|外送地址|電話|信箱|密碼/i;
+
+function isCandidatePromoInput(inp                  )          {
+  const type = (inp.type || inp.getAttribute('type') || 'text').toLowerCase();
+  if (type !== 'text' && type !== '') return false;
+  const meta = [
+    inp.getAttribute('name') ?? '',
+    inp.getAttribute('id') ?? '',
+    inp.placeholder || inp.getAttribute('placeholder') || '',
+    inp.getAttribute('aria-label') ?? '',
+    inp.getAttribute('data-testid') ?? '',
+  ].join(' ');
+  if (EXCLUDED_INPUT_HINT.test(meta)) return false;
+  return true;
+}
+
+function findInputByLabelOrFallback(doc          )                          {
+  // 1. Check <label> elements mentioning voucher/promo keywords
+  const labels = doc.querySelectorAll             ('label');
+  for (const label of labels) {
+    const text = label.textContent ?? '';
+    if (/優惠碼|優惠序號|優惠券|折扣碼|代碼|Promo|Voucher/i.test(text)) {
+      const forId = label.getAttribute('for');
+      if (forId) {
+        const byId = doc.querySelector                  (`#${forId}`);
+        if (byId && isCandidatePromoInput(byId)) return byId;
+      }
+      const nested = label.querySelector                  ('input');
+      if (nested && isCandidatePromoInput(nested)) return nested;
+      const parentInput =
+        label.parentElement?.querySelector                  ('input');
+      if (parentInput && isCandidatePromoInput(parentInput)) return parentInput;
+    }
+  }
+
+  // 2. Check inside any open dialog / modal / bottom sheet on the page
+  const dialogs = doc.querySelectorAll             (
+    '[role="dialog"], [aria-modal="true"], dialog, form',
+  );
+  for (const dlg of dialogs) {
+    const inputs = dlg.querySelectorAll                  ('input');
+    for (const inp of inputs) {
+      if (isCandidatePromoInput(inp)) return inp;
+    }
+  }
+
+  // 3. Fallback: scan all text inputs on the page (useful on dedicated /vouchers or /promotions page)
+  const allInputs = doc.querySelectorAll                  ('input');
+  for (const inp of allInputs) {
+    if (isCandidatePromoInput(inp)) return inp;
+  }
+
+  return null;
+}
+
+function findSubmitNearInput(
+  doc          ,
+  input                         ,
+  config                       ,
+)                     {
+  const buttonKeywordRegex =
+    /^(?:套用|儲存|新增|兌換|領取|確認|送出|Apply|Add|Save|Submit|Redeem)$/i;
+  const looseKeywordRegex =
+    /套用|儲存|新增優惠|兌換|領取|確認|Apply|Add promo|Add voucher|Save/i;
+
+  // 1. Search near the input element first (form / parent containers)
+  if (input) {
+    let container                     = input.parentElement;
+    for (let depth = 0; depth < 4 && container; depth++) {
+      const nearbyButtons = container.querySelectorAll             (
+        'button, [role="button"], input[type="submit"]',
+      );
+      for (const btn of nearbyButtons) {
+        const text = (btn.textContent ?? '').trim();
+        const testId = btn.getAttribute('data-testid') ?? '';
+        if (
+          testId.includes(config.submitTestIdHint) ||
+          buttonKeywordRegex.test(text) ||
+          looseKeywordRegex.test(text) ||
+          btn.getAttribute('type') === 'submit'
+        ) {
+          return btn;
+        }
+      }
+      container = container.parentElement;
+    }
+  }
+
+  // 2. Search across configured submit selectors on the document
+  for (const sel of config.submitSelectors) {
+    const buttons = doc.querySelectorAll             (sel);
+    for (const btn of buttons) {
+      const text = (btn.textContent ?? '').trim();
+      const testId = btn.getAttribute('data-testid') ?? '';
+      if (
+        testId.includes(config.submitTestIdHint) ||
+        buttonKeywordRegex.test(text) ||
+        looseKeywordRegex.test(text)
+      ) {
+        return btn;
+      }
+    }
+  }
+
+  return null;
 }
 
 function createPlatformAdapter(config                       )                  {
@@ -519,28 +761,31 @@ function createPlatformAdapter(config                       )                  {
       let input                          = null;
       for (const sel of config.inputSelectors) {
         const found = doc.querySelector                  (sel);
-        if (found) {
+        if (found && isCandidatePromoInput(found)) {
           input = found;
           break;
         }
       }
-
-      let submit                     = null;
-      for (const sel of config.submitSelectors) {
-        const buttons = doc.querySelectorAll             (sel);
-        for (const btn of buttons) {
-          if (
-            btn.getAttribute('data-testid')?.includes(config.submitTestIdHint) ||
-            /套用|儲存|新增|兌換|領取|Apply|Add/i.test(btn.textContent ?? '')
-          ) {
-            submit = btn;
-            break;
-          }
-        }
-        if (submit) break;
+      if (!input) {
+        input = findInputByLabelOrFallback(doc);
       }
 
+      const submit = findSubmitNearInput(doc, input, config);
       return { input, submit };
+    },
+
+    tryOpenPromoModal(doc          )          {
+      const candidates = doc.querySelectorAll             (
+        'button, a, [role="button"]',
+      );
+      for (const el of candidates) {
+        const text = (el.textContent ?? '').trim();
+        if (config.modalTriggerPattern.test(text)) {
+          el.click();
+          return true;
+        }
+      }
+      return false;
     },
 
     classifyFeedback(doc          )                           {
@@ -557,7 +802,8 @@ function createPlatformAdapter(config                       )                  {
       return classifyFeedbackText(doc.body?.textContent ?? '');
     },
   };
-}const foodpandaAdapter                  = createPlatformAdapter({
+}
+const foodpandaAdapter                  = createPlatformAdapter({
   id: 'foodpanda',
   displayName: 'foodpanda 熊貓外送',
   walletUrl: 'https://www.foodpanda.com.tw/vouchers',
@@ -565,9 +811,16 @@ function createPlatformAdapter(config                       )                  {
   inputSelectors: [
     'input[data-testid="voucher-input"]',
     'input[data-testid*="voucher"]',
-    'input[name="voucherCode"]',
+    '[data-testid*="voucher"] input',
+    '[class*="voucher"] input',
+    'input[name*="voucher"]',
+    'input[id*="voucher"]',
+    'input[name*="coupon"]',
+    'input[id*="coupon"]',
     'input[placeholder*="優惠碼"]',
     'input[placeholder*="優惠券"]',
+    'input[aria-label*="優惠碼"]',
+    'input[aria-label*="優惠券"]',
     'input[placeholder*="Voucher"]',
   ],
   submitSelectors: [
@@ -576,6 +829,7 @@ function createPlatformAdapter(config                       )                  {
     'button[data-testid*="add-voucher"]',
     'button[type="submit"]',
     'button',
+    '[role="button"]',
   ],
   submitTestIdHint: 'voucher',
   feedbackSelectors: [
@@ -586,17 +840,29 @@ function createPlatformAdapter(config                       )                  {
     '.voucher-feedback',
     '.notification-toast',
   ],
-});const uberEatsAdapter                  = createPlatformAdapter({
+  modalTriggerPattern:
+    /^(?:新增優惠券|輸入優惠碼|新增優惠碼|Add a voucher|Add voucher)$/i,
+});
+const uberEatsAdapter                  = createPlatformAdapter({
   id: 'ubereats',
   displayName: 'Uber Eats 優食',
   walletUrl: 'https://www.ubereats.com/tw/promotions',
-  walletPathPattern: /\/(promotions|wallet)\b/i,
+  walletPathPattern: /\/(promotions|wallet|checkout)\b/i,
   inputSelectors: [
     'input[data-testid="promo-code-input"]',
     'input[data-testid*="promo"]',
-    'input[name="promoCode"]',
+    '[data-testid*="promo"] input',
+    '[class*="promo"] input',
+    '[role="dialog"] input',
+    '[aria-modal="true"] input',
+    'input[name*="promo"]',
+    'input[id*="promo"]',
     'input[placeholder*="優惠序號"]',
     'input[placeholder*="優惠碼"]',
+    'input[placeholder*="輸入優惠"]',
+    'input[placeholder*="折扣碼"]',
+    'input[aria-label*="優惠序號"]',
+    'input[aria-label*="優惠碼"]',
     'input[placeholder*="Promo"]',
   ],
   submitSelectors: [
@@ -604,6 +870,7 @@ function createPlatformAdapter(config                       )                  {
     'button[data-testid*="promo-apply"]',
     'button[type="submit"]',
     'button',
+    '[role="button"]',
   ],
   submitTestIdHint: 'promo',
   feedbackSelectors: [
@@ -613,7 +880,10 @@ function createPlatformAdapter(config                       )                  {
     '[role="alert"]',
     '.promo-feedback',
   ],
-});function detectPlatform(url        )                  {
+  modalTriggerPattern:
+    /^(?:新增優惠序號|輸入優惠序號|新增優惠|輸入優惠碼|Add promo code|Add promo|優惠方案)$/i,
+});
+function detectPlatform(url        )                  {
   if (/ubereats\.com/i.test(url)) {
     return uberEatsAdapter;
   }
@@ -1085,6 +1355,13 @@ const SHADOW_STYLES = `
     }
 
     if (!platform.isWalletPage(currentUrl, document)) {
+      if (platform.tryOpenPromoModal(document)) {
+        const modalWait = Math.max(20, delayFn());
+        await new Promise((resolve) => setTimeout(resolve, modalWait));
+      }
+    }
+
+    if (!platform.isWalletPage(currentUrl, document)) {
       savePendingRunState({
         platform: platform.id,
         codes: dedupedCodes,
@@ -1127,10 +1404,20 @@ const SHADOW_STYLES = `
         return;
       }
 
-      const { input, submit } = platform.findInputAndSubmit(document);
+      let { input, submit } = platform.findInputAndSubmit(document);
+      if (!input || !submit) {
+        if (platform.tryOpenPromoModal(document)) {
+          const modalWait = Math.max(20, delayFn());
+          await new Promise((resolve) => setTimeout(resolve, modalWait));
+          ({ input, submit } = platform.findInputAndSubmit(document));
+        }
+      }
       if (!input || !submit) {
         pausedRemainingCodes = filteredCodes.slice(i);
-        runStatusText = '已暫停：找不到優惠碼輸入框或套用按鈕';
+        runStatusText =
+          platform.id === 'ubereats'
+            ? '已暫停：請先點開「帳戶 → 優惠方案 → 新增優惠序號」（或結帳頁的「新增優惠序號」）再點「繼續執行」'
+            : '已暫停：請先打開「優惠券匣」的輸入框再點「繼續執行」';
         renderState();
         return;
       }

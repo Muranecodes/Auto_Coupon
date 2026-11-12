@@ -1,14 +1,41 @@
 {
-  "updatedAt": "2026-11-12T13:25:00.000Z",
+  "updatedAt": "2026-11-12T13:50:00.000Z",
   "coupons": [
     {
       "code": "11111111111",
       "platform": "foodpanda",
-      "title": "pandapro 半年會員方案特價 $111 優惠碼",
+      "title": "pandapro 半年會員方案特價 $111 結帳優惠碼",
       "category": "checkout_only",
       "expiresAt": null,
       "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
+    },
+    {
+      "code": "天天取天天爽",
+      "platform": "foodpanda",
+      "title": "外帶自取指定店家滿額折抵優惠（最高折 $110）",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
+      "updatedAt": "2026-11-12T13:50:00.000Z"
+    },
+    {
+      "code": "天天省天天爽",
+      "platform": "foodpanda",
+      "title": "美食外送指定餐廳滿額折扣優惠",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
+      "updatedAt": "2026-11-12T13:50:00.000Z"
+    },
+    {
+      "code": "週二星享日",
+      "platform": "foodpanda",
+      "title": "週二星巴克指定專區滿額現折 $70",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
       "code": "581享受",
@@ -17,7 +44,7 @@
       "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
       "code": "afftweats1126",
@@ -26,7 +53,7 @@
       "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
       "code": "會員週年享",
@@ -35,7 +62,7 @@
       "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
       "code": "會員週年慶",
@@ -44,7 +71,7 @@
       "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
       "code": "週年慶外帶",
@@ -53,7 +80,7 @@
       "category": "checkout_only",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:25:00.000Z"
+      "updatedAt": "2026-11-12T13:50:00.000Z"
     }
   ]
 }

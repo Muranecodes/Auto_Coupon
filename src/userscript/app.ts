@@ -515,6 +515,13 @@ export function mountAutoCoupon(
     }
 
     if (!platform.isWalletPage(currentUrl, document)) {
+      if (platform.tryOpenPromoModal(document)) {
+        const modalWait = Math.max(20, delayFn());
+        await new Promise((resolve) => setTimeout(resolve, modalWait));
+      }
+    }
+
+    if (!platform.isWalletPage(currentUrl, document)) {
       savePendingRunState({
         platform: platform.id,
         codes: dedupedCodes,
@@ -557,10 +564,20 @@ export function mountAutoCoupon(
         return;
       }
 
-      const { input, submit } = platform.findInputAndSubmit(document);
+      let { input, submit } = platform.findInputAndSubmit(document);
+      if (!input || !submit) {
+        if (platform.tryOpenPromoModal(document)) {
+          const modalWait = Math.max(20, delayFn());
+          await new Promise((resolve) => setTimeout(resolve, modalWait));
+          ({ input, submit } = platform.findInputAndSubmit(document));
+        }
+      }
       if (!input || !submit) {
         pausedRemainingCodes = filteredCodes.slice(i);
-        runStatusText = '已暫停：找不到優惠碼輸入框或套用按鈕';
+        runStatusText =
+          platform.id === 'ubereats'
+            ? '已暫停：請先點開「帳戶 → 優惠方案 → 新增優惠序號」（或結帳頁的「新增優惠序號」）再點「繼續執行」'
+            : '已暫停：請先打開「優惠券匣」的輸入框再點「繼續執行」';
         renderState();
         return;
       }

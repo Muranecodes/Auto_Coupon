@@ -15,6 +15,7 @@ export interface PlatformAdapter {
     input: HTMLInputElement | null;
     submit: HTMLElement | null;
   };
+  tryOpenPromoModal(doc: Document): boolean;
   classifyFeedback(doc: Document): PlatformSubmissionResult;
 }
 
@@ -27,6 +28,7 @@ interface PlatformAdapterConfig {
   submitSelectors: string[];
   submitTestIdHint: string;
   feedbackSelectors: string[];
+  modalTriggerPattern: RegExp;
 }
 
 export function setNativeInputValue(
@@ -46,28 +48,71 @@ export function setNativeInputValue(
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function isElementVisiblyActive(el: HTMLElement): boolean {
+  const styleAttr = el.getAttribute?.('style') ?? '';
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(styleAttr)) {
+    return false;
+  }
+  if (el.getAttribute?.('aria-hidden') === 'true') {
+    return false;
+  }
+  if (
+    typeof window !== 'undefined' &&
+    typeof (window as unknown as { getComputedStyle?: typeof getComputedStyle })
+      .getComputedStyle === 'function'
+  ) {
+    try {
+      const computed = window.getComputedStyle(el);
+      if (
+        computed.display === 'none' ||
+        computed.visibility === 'hidden' ||
+        computed.opacity === '0'
+      ) {
+        return false;
+      }
+    } catch {
+      // Ignore in test DOM
+    }
+  }
+  if (typeof el.getBoundingClientRect === 'function') {
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        return false;
+      }
+    } catch {
+      // Ignore in test DOM
+    }
+  }
+  return Boolean(
+    (el.textContent && el.textContent.trim().length > 0) ||
+      el.querySelector?.('iframe'),
+  );
+}
+
 function detectCommonChallenge(doc: Document): string | null {
   const challengeSelectors = [
     '#px-captcha',
     '[id*="px-captcha"]',
     '.cf-turnstile',
     '[data-testid="challenge-container"]',
-    '[data-testid="login-modal"]',
   ];
   for (const sel of challengeSelectors) {
-    const el = doc.querySelector(sel);
-    if (el) {
-      return '偵測到網站安全驗證或登入要求，已暫停佇列，請手動完成驗證後繼續';
+    const el = doc.querySelector<HTMLElement>(sel);
+    if (el && isElementVisiblyActive(el)) {
+      return '偵測到網站安全驗證（CAPTCHA），已暫停佇列，請手動完成驗證後點擊「繼續執行」';
     }
   }
-  const bodyText = doc.body?.textContent ?? '';
+
+  const pageTitle = (doc as unknown as { title?: string }).title ?? '';
   if (
-    /Press\s*&\s*Hold|confirm you are a human|請證明您是人類|請先登入|驗證您是人類/i.test(
-      bodyText,
+    /Access to this page has been denied|Just a moment|Attention Required/i.test(
+      pageTitle,
     )
   ) {
-    return '偵測到網站安全驗證或登入要求，已暫停佇列，請手動完成驗證後繼續';
+    return '偵測到網站安全驗證頁面，已暫停佇列，請手動完成驗證後點擊「繼續執行」';
   }
+
   return null;
 }
 
@@ -87,7 +132,7 @@ function classifyFeedbackText(text: string): PlatformSubmissionResult {
     /成功|已存入|已新增|已套用|已歸戶|added|claimed|applied\s+successfully|promo\s+applied/i.test(
       normalized,
     ) &&
-    !/無法|失敗|無效|過期/.test(normalized)
+    !/無法|失敗|無效|過期|錯誤|不適用/.test(normalized)
   ) {
     return {
       outcome: 'claimed',
@@ -110,7 +155,6 @@ export function isAppDeepLink(url: string): boolean {
 }
 
 export function installAntiAppHijack(doc: Document): void {
-  // Remove iOS Smart App Banner meta tags & app-open banners
   const banners = doc.querySelectorAll(
     'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
   );
@@ -118,7 +162,6 @@ export function installAntiAppHijack(doc: Document): void {
     el.remove();
   }
 
-  // Neutralize deep-link anchors on the page
   const anchors = doc.querySelectorAll<HTMLElement>('a[href]');
   for (const a of anchors) {
     const href = a.getAttribute('href') ?? '';
@@ -163,7 +206,6 @@ export function navigateWithoutAppSwitch(
     );
     const relativePath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
 
-    // 1. If an in-page SPA link to this pathname exists, click it so router navigates without iOS Universal Link
     const inPageLink = doc.querySelector<HTMLElement>(
       `a[href="${parsed.pathname}"]`,
     );
@@ -172,7 +214,6 @@ export function navigateWithoutAppSwitch(
       return;
     }
 
-    // 2. If History API is available on the same origin in a real browser, trigger SPA popstate first
     if (
       typeof window !== 'undefined' &&
       window.location &&
@@ -221,7 +262,10 @@ export function installNetworkFeedbackSniffer(): void {
           typeof args[0] === 'string'
             ? args[0]
             : (args[0] as { url?: string })?.url ?? '';
-        if (/voucher|promo|coupon/i.test(reqUrl) && typeof res.clone === 'function') {
+        if (
+          /voucher|promo|coupon/i.test(reqUrl) &&
+          typeof res.clone === 'function'
+        ) {
           const text = await res.clone().text();
           recordNetworkFeedbackText(text);
         }
@@ -231,6 +275,114 @@ export function installNetworkFeedbackSniffer(): void {
       return res;
     };
   }
+}
+
+const EXCLUDED_INPUT_HINT =
+  /search|address|location|email|phone|password|搜尋|地址|外送地址|電話|信箱|密碼/i;
+
+function isCandidatePromoInput(inp: HTMLInputElement): boolean {
+  const type = (inp.type || inp.getAttribute('type') || 'text').toLowerCase();
+  if (type !== 'text' && type !== '') return false;
+  const meta = [
+    inp.getAttribute('name') ?? '',
+    inp.getAttribute('id') ?? '',
+    inp.placeholder || inp.getAttribute('placeholder') || '',
+    inp.getAttribute('aria-label') ?? '',
+    inp.getAttribute('data-testid') ?? '',
+  ].join(' ');
+  if (EXCLUDED_INPUT_HINT.test(meta)) return false;
+  return true;
+}
+
+function findInputByLabelOrFallback(doc: Document): HTMLInputElement | null {
+  // 1. Check <label> elements mentioning voucher/promo keywords
+  const labels = doc.querySelectorAll<HTMLElement>('label');
+  for (const label of labels) {
+    const text = label.textContent ?? '';
+    if (/優惠碼|優惠序號|優惠券|折扣碼|代碼|Promo|Voucher/i.test(text)) {
+      const forId = label.getAttribute('for');
+      if (forId) {
+        const byId = doc.querySelector<HTMLInputElement>(`#${forId}`);
+        if (byId && isCandidatePromoInput(byId)) return byId;
+      }
+      const nested = label.querySelector<HTMLInputElement>('input');
+      if (nested && isCandidatePromoInput(nested)) return nested;
+      const parentInput =
+        label.parentElement?.querySelector<HTMLInputElement>('input');
+      if (parentInput && isCandidatePromoInput(parentInput)) return parentInput;
+    }
+  }
+
+  // 2. Check inside any open dialog / modal / bottom sheet on the page
+  const dialogs = doc.querySelectorAll<HTMLElement>(
+    '[role="dialog"], [aria-modal="true"], dialog, form',
+  );
+  for (const dlg of dialogs) {
+    const inputs = dlg.querySelectorAll<HTMLInputElement>('input');
+    for (const inp of inputs) {
+      if (isCandidatePromoInput(inp)) return inp;
+    }
+  }
+
+  // 3. Fallback: scan all text inputs on the page (useful on dedicated /vouchers or /promotions page)
+  const allInputs = doc.querySelectorAll<HTMLInputElement>('input');
+  for (const inp of allInputs) {
+    if (isCandidatePromoInput(inp)) return inp;
+  }
+
+  return null;
+}
+
+function findSubmitNearInput(
+  doc: Document,
+  input: HTMLInputElement | null,
+  config: PlatformAdapterConfig,
+): HTMLElement | null {
+  const buttonKeywordRegex =
+    /^(?:套用|儲存|新增|兌換|領取|確認|送出|Apply|Add|Save|Submit|Redeem)$/i;
+  const looseKeywordRegex =
+    /套用|儲存|新增優惠|兌換|領取|確認|Apply|Add promo|Add voucher|Save/i;
+
+  // 1. Search near the input element first (form / parent containers)
+  if (input) {
+    let container: HTMLElement | null = input.parentElement;
+    for (let depth = 0; depth < 4 && container; depth++) {
+      const nearbyButtons = container.querySelectorAll<HTMLElement>(
+        'button, [role="button"], input[type="submit"]',
+      );
+      for (const btn of nearbyButtons) {
+        const text = (btn.textContent ?? '').trim();
+        const testId = btn.getAttribute('data-testid') ?? '';
+        if (
+          testId.includes(config.submitTestIdHint) ||
+          buttonKeywordRegex.test(text) ||
+          looseKeywordRegex.test(text) ||
+          btn.getAttribute('type') === 'submit'
+        ) {
+          return btn;
+        }
+      }
+      container = container.parentElement;
+    }
+  }
+
+  // 2. Search across configured submit selectors on the document
+  for (const sel of config.submitSelectors) {
+    const buttons = doc.querySelectorAll<HTMLElement>(sel);
+    for (const btn of buttons) {
+      const text = (btn.textContent ?? '').trim();
+      const testId = btn.getAttribute('data-testid') ?? '';
+      if (
+        testId.includes(config.submitTestIdHint) ||
+        buttonKeywordRegex.test(text) ||
+        looseKeywordRegex.test(text)
+      ) {
+        return btn;
+      }
+    }
+  }
+
+  return null;
 }
 
 function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
@@ -253,28 +405,31 @@ function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
       let input: HTMLInputElement | null = null;
       for (const sel of config.inputSelectors) {
         const found = doc.querySelector<HTMLInputElement>(sel);
-        if (found) {
+        if (found && isCandidatePromoInput(found)) {
           input = found;
           break;
         }
       }
-
-      let submit: HTMLElement | null = null;
-      for (const sel of config.submitSelectors) {
-        const buttons = doc.querySelectorAll<HTMLElement>(sel);
-        for (const btn of buttons) {
-          if (
-            btn.getAttribute('data-testid')?.includes(config.submitTestIdHint) ||
-            /套用|儲存|新增|兌換|領取|Apply|Add/i.test(btn.textContent ?? '')
-          ) {
-            submit = btn;
-            break;
-          }
-        }
-        if (submit) break;
+      if (!input) {
+        input = findInputByLabelOrFallback(doc);
       }
 
+      const submit = findSubmitNearInput(doc, input, config);
       return { input, submit };
+    },
+
+    tryOpenPromoModal(doc: Document): boolean {
+      const candidates = doc.querySelectorAll<HTMLElement>(
+        'button, a, [role="button"]',
+      );
+      for (const el of candidates) {
+        const text = (el.textContent ?? '').trim();
+        if (config.modalTriggerPattern.test(text)) {
+          el.click();
+          return true;
+        }
+      }
+      return false;
     },
 
     classifyFeedback(doc: Document): PlatformSubmissionResult {
@@ -301,9 +456,16 @@ export const foodpandaAdapter: PlatformAdapter = createPlatformAdapter({
   inputSelectors: [
     'input[data-testid="voucher-input"]',
     'input[data-testid*="voucher"]',
-    'input[name="voucherCode"]',
+    '[data-testid*="voucher"] input',
+    '[class*="voucher"] input',
+    'input[name*="voucher"]',
+    'input[id*="voucher"]',
+    'input[name*="coupon"]',
+    'input[id*="coupon"]',
     'input[placeholder*="優惠碼"]',
     'input[placeholder*="優惠券"]',
+    'input[aria-label*="優惠碼"]',
+    'input[aria-label*="優惠券"]',
     'input[placeholder*="Voucher"]',
   ],
   submitSelectors: [
@@ -312,6 +474,7 @@ export const foodpandaAdapter: PlatformAdapter = createPlatformAdapter({
     'button[data-testid*="add-voucher"]',
     'button[type="submit"]',
     'button',
+    '[role="button"]',
   ],
   submitTestIdHint: 'voucher',
   feedbackSelectors: [
@@ -322,19 +485,30 @@ export const foodpandaAdapter: PlatformAdapter = createPlatformAdapter({
     '.voucher-feedback',
     '.notification-toast',
   ],
+  modalTriggerPattern:
+    /^(?:新增優惠券|輸入優惠碼|新增優惠碼|Add a voucher|Add voucher)$/i,
 });
 
 export const uberEatsAdapter: PlatformAdapter = createPlatformAdapter({
   id: 'ubereats',
   displayName: 'Uber Eats 優食',
   walletUrl: 'https://www.ubereats.com/tw/promotions',
-  walletPathPattern: /\/(promotions|wallet)\b/i,
+  walletPathPattern: /\/(promotions|wallet|checkout)\b/i,
   inputSelectors: [
     'input[data-testid="promo-code-input"]',
     'input[data-testid*="promo"]',
-    'input[name="promoCode"]',
+    '[data-testid*="promo"] input',
+    '[class*="promo"] input',
+    '[role="dialog"] input',
+    '[aria-modal="true"] input',
+    'input[name*="promo"]',
+    'input[id*="promo"]',
     'input[placeholder*="優惠序號"]',
     'input[placeholder*="優惠碼"]',
+    'input[placeholder*="輸入優惠"]',
+    'input[placeholder*="折扣碼"]',
+    'input[aria-label*="優惠序號"]',
+    'input[aria-label*="優惠碼"]',
     'input[placeholder*="Promo"]',
   ],
   submitSelectors: [
@@ -342,6 +516,7 @@ export const uberEatsAdapter: PlatformAdapter = createPlatformAdapter({
     'button[data-testid*="promo-apply"]',
     'button[type="submit"]',
     'button',
+    '[role="button"]',
   ],
   submitTestIdHint: 'promo',
   feedbackSelectors: [
@@ -351,6 +526,8 @@ export const uberEatsAdapter: PlatformAdapter = createPlatformAdapter({
     '[role="alert"]',
     '.promo-feedback',
   ],
+  modalTriggerPattern:
+    /^(?:新增優惠序號|輸入優惠序號|新增優惠|輸入優惠碼|Add promo code|Add promo|優惠方案)$/i,
 });
 
 export function detectPlatform(url: string): PlatformAdapter {

@@ -17,6 +17,84 @@ declare const GM_xmlhttpRequest:
 export const DEFAULT_FEED_URL =
   'https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/data/coupons.json';
 
+export const BUILTIN_COUPON_FEED: CouponFeed = {
+  updatedAt: '2026-11-12T13:50:00.000Z',
+  coupons: [
+    {
+      code: '週二星享日',
+      platform: 'foodpanda',
+      title: '週二星巴克指定專區滿額現折 $70',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '天天取天天爽',
+      platform: 'foodpanda',
+      title: '外帶自取指定店家滿額折抵優惠（最高折 $110）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '天天省天天爽',
+      platform: 'foodpanda',
+      title: '美食外送指定餐廳滿額折扣優惠',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '11111111111',
+      platform: 'foodpanda',
+      title: 'pandapro 半年會員方案特價 $111 結帳優惠碼',
+      category: 'checkout_only',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '581享受',
+      platform: 'ubereats',
+      title: '精選店家滿 $399 享 85 折（最高折 $70~$90）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '會員週年享',
+      platform: 'ubereats',
+      title: 'Uber One 會員美食外送滿 $649 現折 $100（可用 2 次）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '會員週年慶',
+      platform: 'ubereats',
+      title: 'Uber One 會員美食外送滿 $450 享 $0 外送費與服務費（可用 4 次）',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: 'afftweats1126',
+      platform: 'ubereats',
+      title: 'Uber Eats 新戶首 2 單滿 $150 折 $75',
+      category: 'wallet',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+    {
+      code: '週年慶外帶',
+      platform: 'ubereats',
+      title: '外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）',
+      category: 'checkout_only',
+      expiresAt: null,
+      updatedAt: '2026-11-12T13:50:00.000Z',
+    },
+  ],
+};
+
 export async function fetchCouponFeed(
   feedUrl = DEFAULT_FEED_URL,
   customFetcher?: (url: string) => Promise<unknown>,
@@ -53,12 +131,18 @@ export async function fetchCouponFeed(
     }
 
     const parsed = validateFeed(rawData);
-    saveCachedFeed(parsed);
+    if (parsed.coupons.length > 0) {
+      saveCachedFeed(parsed);
+      return parsed;
+    }
+    if (!customFetcher) {
+      return BUILTIN_COUPON_FEED;
+    }
     return parsed;
   } catch {
     const cached = loadCachedFeed();
-    if (cached) return cached;
-    return { updatedAt: new Date().toISOString(), coupons: [] };
+    if (cached && cached.coupons.length > 0) return cached;
+    return BUILTIN_COUPON_FEED;
   }
 }
 

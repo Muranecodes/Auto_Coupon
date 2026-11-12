@@ -385,4 +385,86 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
 
     assert.deepEqual(submittedCodes, ['十一月熊貓', '天天省天天爽', '週三買熊貓']);
   });
+
+  it('ignores dormant #px-captcha and script text on foodpanda, and auto-clicks Uber Eats 新增優惠序號 button to reveal the promo input modal', async () => {
+    // 1. foodpanda page with dormant empty #px-captcha and <script> containing 請先登入
+    installFakeDom('https://www.foodpanda.com.tw/vouchers');
+    document.body.innerHTML = `
+      <script>window.__I18N__ = {"login": "請先登入", "human": "請證明您是人類"};</script>
+      <div id="px-captcha" style="display: none;"></div>
+      <div data-testid="voucher-box">
+        <label>輸入優惠碼</label>
+        <input type="text" value="" />
+        <button type="button">套用</button>
+      </div>
+      <div role="alert">成功新增優惠券！</div>
+    `;
+
+    const fpSubmitted: string[] = [];
+    const fpInput = document.querySelector<HTMLInputElement>('input')!;
+    const fpBtn = document.querySelector<HTMLButtonElement>('button')!;
+    fpBtn.addEventListener('click', () => {
+      fpSubmitted.push(fpInput.value.trim());
+    });
+
+    const fpController = mountAutoCoupon({
+      url: 'https://www.foodpanda.com.tw/vouchers',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+    });
+    fpController.setQueue(['週二星享日']);
+    document
+      .querySelector('#auto-coupon-root')!
+      .shadowRoot!.querySelector<HTMLButtonElement>(
+        '[data-role="start-run-btn"]',
+      )!
+      .click();
+    await fpController.waitForIdle();
+
+    assert.deepEqual(fpSubmitted, ['週二星享日']);
+
+    // 2. Uber Eats page where input only mounts after clicking "新增優惠序號" button
+    installFakeDom('https://www.ubereats.com/tw');
+    document.body.innerHTML = `
+      <div id="ue-account-panel">
+        <button id="open-promo-modal-btn" type="button">新增優惠序號</button>
+      </div>
+    `;
+
+    const ueSubmitted: string[] = [];
+    document
+      .querySelector('#open-promo-modal-btn')!
+      .addEventListener('click', () => {
+        const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        dialog.innerHTML = `
+          <input type="text" value="" />
+          <button id="ue-modal-submit" type="button">套用</button>
+          <div role="alert">已成功套用優惠序號</div>
+        `;
+        document.body.appendChild(dialog);
+        const modalInput = dialog.querySelector<HTMLInputElement>('input')!;
+        const modalSubmit =
+          dialog.querySelector<HTMLButtonElement>('#ue-modal-submit')!;
+        modalSubmit.addEventListener('click', () => {
+          ueSubmitted.push(modalInput.value.trim());
+        });
+      });
+
+    const ueController = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+    });
+    ueController.setQueue(['581享受']);
+    document
+      .querySelector('#auto-coupon-root')!
+      .shadowRoot!.querySelector<HTMLButtonElement>(
+        '[data-role="start-run-btn"]',
+      )!
+      .click();
+    await ueController.waitForIdle();
+
+    assert.deepEqual(ueSubmitted, ['581享受']);
+  });
 });
