@@ -118,6 +118,22 @@ export function saveRedemptionRecord(
   return record;
 }
 
+export function deleteRedemptionRecord(
+  platform: PlatformId,
+  code: string,
+): void {
+  const normalized = normalizeCouponCode(code);
+  const records = loadRedemptionRecords(platform);
+  if (records[normalized]) {
+    delete records[normalized];
+    writeRaw(`records:v2:${platform}`, JSON.stringify(records));
+  }
+}
+
+export function clearRedemptionRecords(platform: PlatformId): void {
+  writeRaw(`records:v2:${platform}`, JSON.stringify({}));
+}
+
 export function savePendingRunState(
   state: PendingRedemptionState | null,
 ): void {

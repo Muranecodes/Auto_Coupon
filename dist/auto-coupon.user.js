@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.7
+// @version      1.2.0
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -141,6 +141,18 @@ function writeRaw(key        , value               )       {
   records[normalized] = record;
   writeRaw(`records:v2:${platform}`, JSON.stringify(records));
   return record;
+}function deleteRedemptionRecord(
+  platform            ,
+  code        ,
+)       {
+  const normalized = normalizeCouponCode(code);
+  const records = loadRedemptionRecords(platform);
+  if (records[normalized]) {
+    delete records[normalized];
+    writeRaw(`records:v2:${platform}`, JSON.stringify(records));
+  }
+}function clearRedemptionRecords(platform            )       {
+  writeRaw(`records:v2:${platform}`, JSON.stringify({}));
 }function savePendingRunState(
   state                               ,
 )       {
@@ -1673,42 +1685,66 @@ const SHADOW_STYLES = `
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     border-radius: 999px;
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    background: linear-gradient(135deg, #d70f64, #ff2b85);
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    background: linear-gradient(135deg, #f472b6 0%, #ec4899 50%, #c084fc 100%);
     color: #fff;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35);
     cursor: pointer;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ac-pill:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45);
   }
   .ac-pill-badge {
     background: #fff;
-    color: #d70f64;
+    color: #db2777;
     border-radius: 999px;
     padding: 2px 7px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
   }
   .ac-sheet {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
     z-index: 2147483647;
     background: #ffffff;
     color: #1f2937;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.22);
-    max-height: 82vh;
+    box-shadow: 0 10px 32px rgba(219, 39, 119, 0.16), 0 2px 10px rgba(0, 0, 0, 0.08);
     overflow-y: auto;
-    padding: 16px 18px calc(24px + env(safe-area-inset-bottom, 0px));
-    transition: transform 0.22s ease;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+    box-sizing: border-box;
+    border: 1px solid rgba(244, 114, 182, 0.3);
+  }
+  /* Desktop compact floating card (under 50vh, width 360px) */
+  @media (min-width: 641px) {
+    .ac-sheet {
+      right: 20px;
+      bottom: 80px;
+      width: 360px;
+      max-width: calc(100vw - 40px);
+      max-height: 52vh;
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+  }
+  /* Mobile compact bottom sheet (capped under 50vh) */
+  @media (max-width: 640px) {
+    .ac-sheet {
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 50vh;
+      border-radius: 18px 18px 0 0;
+      padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    }
   }
   .ac-sheet[data-open="false"] {
     display: none;
@@ -1717,62 +1753,133 @@ const SHADOW_STYLES = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   .ac-notice {
-    font-size: 12px;
-    color: #92400e;
-    background: #fef3c7;
-    border: 1px solid #fde68a;
+    font-size: 11px;
+    color: #9d174d;
+    background: #fdf2f8;
+    border: 1px solid #fbcfe8;
     border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 10px;
-    line-height: 1.45;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    line-height: 1.4;
   }
   .ac-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 800;
+    color: #be185d;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ac-tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    background: #fdf2f8;
+    border-radius: 999px;
+    margin-bottom: 8px;
+    border: 1px solid #fce7f3;
+  }
+  .ac-tab-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: #9d174d;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .ac-tab-btn[data-active="true"] {
+    background: #ffffff;
+    color: #db2777;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(219, 39, 119, 0.15);
+  }
+  .ac-tab-badge {
+    background: #fce7f3;
+    color: #db2777;
+    border-radius: 999px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .ac-tab-btn[data-active="true"] .ac-tab-badge {
+    background: #fdf2f8;
+    color: #be185d;
+  }
+  .ac-tab-panel {
+    display: none;
+  }
+  .ac-tab-panel[data-active="true"] {
+    display: block;
   }
   .ac-btn {
-    padding: 8px 12px;
-    border-radius: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
     border: none;
-    background: #d70f64;
+    background: linear-gradient(135deg, #ec4899 0%, #c084fc 100%);
     color: #fff;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  .ac-btn:active {
+    transform: scale(0.97);
   }
   .ac-btn-secondary {
-    background: #f3f4f6;
-    color: #374151;
+    background: #fdf2f8;
+    color: #be185d;
+    border: 1px solid #fbcfe8;
+  }
+  .ac-btn-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+  .ac-btn-sm {
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 8px;
   }
   .ac-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 8px 0;
+    gap: 6px;
+    margin: 6px 0;
     flex-wrap: wrap;
+    font-size: 12px;
   }
   .ac-section {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid #e5e7eb;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #fce7f3;
+    font-size: 12px;
   }
   .ac-chip-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin: 8px 0;
+    gap: 4px;
+    margin: 6px 0;
   }
   .ac-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: 999px;
     background: #fce7f3;
     color: #9d174d;
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
     border: 1px solid #f9a8d4;
   }
@@ -1784,11 +1891,149 @@ const SHADOW_STYLES = `
   }
   .ac-input {
     width: 100%;
-    padding: 8px 10px;
+    padding: 6px 10px;
     border-radius: 8px;
-    border: 1px solid #d1d5db;
-    font-size: 13px;
+    border: 1px solid #fbcfe8;
+    background: #fff;
+    font-size: 12px;
     box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .ac-input:focus {
+    border-color: #ec4899;
+  }
+  .ac-scroll-list {
+    max-height: 160px;
+    overflow-y: auto;
+    margin-top: 4px;
+    padding-right: 2px;
+  }
+  .ac-scroll-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .ac-scroll-list::-webkit-scrollbar-thumb {
+    background: #fbcfe8;
+    border-radius: 4px;
+  }
+  .ac-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .ac-badge-claimed {
+    background: #dcfce7;
+    color: #15803d;
+  }
+  .ac-badge-already_claimed {
+    background: #f3e8ff;
+    color: #7e22ce;
+  }
+  .ac-badge-invalid_or_expired {
+    background: #fdf2f8;
+    color: #9d174d;
+  }
+  .ac-badge-pending {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  .ac-badge-submitting {
+    background: #fef3c7;
+    color: #b45309;
+  }
+  .ac-history-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .ac-filter-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .ac-filter-chip {
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #fbcfe8;
+    background: #fff;
+    color: #9d174d;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ac-filter-chip[data-active="true"] {
+    background: #ec4899;
+    color: #fff;
+    border-color: #ec4899;
+    font-weight: 700;
+  }
+  .ac-accordion-card {
+    background: #fff;
+    border: 1px solid #fce7f3;
+    border-radius: 10px;
+    margin-bottom: 5px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ac-accordion-card:hover {
+    border-color: #f472b6;
+  }
+  .ac-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    cursor: pointer;
+    gap: 6px;
+    user-select: none;
+    background: #fff;
+  }
+  .ac-accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+  .ac-accordion-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #9ca3af;
+  }
+  .ac-accordion-body {
+    padding: 6px 8px;
+    background: #fdf2f8;
+    border-top: 1px dashed #fbcfe8;
+    font-size: 11px;
+    color: #4b5563;
+    display: none;
+  }
+  .ac-accordion-card[data-expanded="true"] .ac-accordion-body {
+    display: block;
+  }
+  .ac-accordion-card[data-expanded="true"] .ac-chevron {
+    transform: rotate(180deg);
+  }
+  .ac-chevron {
+    transition: transform 0.2s ease;
+    display: inline-block;
+    font-size: 8px;
+    color: #be185d;
+  }
+  .ac-accordion-actions {
+    margin-top: 6px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
   }
 `;
 
@@ -2042,6 +2287,80 @@ function createEl                  (
     sheetEl.appendChild(noticeEl);
   }
 
+  let activeTab                                   = 'queue';
+  let historyFilter                            = 'all';
+  const expandedHistoryCodes = new Set        ();
+
+  const tabBar = createEl(document, 'div', {
+    class: 'ac-tab-bar',
+    'data-role': 'tab-bar',
+  });
+  const tabQueueBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-tab-btn',
+      'data-role': 'tab-queue',
+      'data-tab': 'queue',
+      'data-active': 'true',
+    },
+    '📋 待領佇列',
+  );
+  const tabHistoryBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-tab-btn',
+      'data-role': 'tab-history',
+      'data-tab': 'history',
+      'data-active': 'false',
+    },
+  );
+  tabHistoryBtn.appendChild(createEl(document, 'span', undefined, '🌸 歷史紀錄 '));
+  const historyBadgeEl = createEl(
+    document,
+    'span',
+    { class: 'ac-tab-badge', 'data-role': 'history-badge' },
+    '0',
+  );
+  tabHistoryBtn.appendChild(historyBadgeEl);
+
+  const tabCheckoutBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-tab-btn',
+      'data-role': 'tab-checkout',
+      'data-tab': 'checkout',
+      'data-active': 'false',
+    },
+    '🎫 結帳限定碼',
+  );
+
+  tabBar.appendChild(tabQueueBtn);
+  tabBar.appendChild(tabHistoryBtn);
+  tabBar.appendChild(tabCheckoutBtn);
+  sheetEl.appendChild(tabBar);
+
+  const tabQueuePanel = createEl(document, 'div', {
+    class: 'ac-tab-panel',
+    'data-panel': 'queue',
+    'data-active': 'true',
+  });
+  const tabHistoryPanel = createEl(document, 'div', {
+    class: 'ac-tab-panel',
+    'data-panel': 'history',
+    'data-active': 'false',
+  });
+  const tabCheckoutPanel = createEl(document, 'div', {
+    class: 'ac-tab-panel',
+    'data-panel': 'checkout',
+    'data-active': 'false',
+  });
+
   const statusRow = createEl(document, 'div', { class: 'ac-row' });
   const statusEl = createEl(
     document,
@@ -2061,7 +2380,7 @@ function createEl                  (
   )                     ;
   statusRow.appendChild(statusEl);
   statusRow.appendChild(syncFeedBtn);
-  sheetEl.appendChild(statusRow);
+  tabQueuePanel.appendChild(statusRow);
 
   const feedUrlRow = createEl(document, 'div', { class: 'ac-row' });
   const feedUrlInput = createEl(document, 'input', {
@@ -2072,7 +2391,7 @@ function createEl                  (
     placeholder: '遠端 Coupon Feed JSON URL',
   })                    ;
   feedUrlRow.appendChild(feedUrlInput);
-  sheetEl.appendChild(feedUrlRow);
+  tabQueuePanel.appendChild(feedUrlRow);
 
   const summaryEl = createEl(
     document,
@@ -2080,7 +2399,7 @@ function createEl                  (
     { class: 'ac-row', 'data-role': 'run-summary' },
     '成功: 0 | 已領過: 0 | 無效/過期: 0',
   );
-  sheetEl.appendChild(summaryEl);
+  tabQueuePanel.appendChild(summaryEl);
 
   const forceRetryRow = createEl(document, 'div', { class: 'ac-row' });
   const forceRetryLabel = createEl(document, 'label');
@@ -2097,7 +2416,7 @@ function createEl                  (
   );
   forceRetryLabel.appendChild(forceRetryText);
   forceRetryRow.appendChild(forceRetryLabel);
-  sheetEl.appendChild(forceRetryRow);
+  tabQueuePanel.appendChild(forceRetryRow);
 
   const actionRow = createEl(document, 'div', { class: 'ac-row' });
   const startRunBtn = createEl(
@@ -2121,17 +2440,18 @@ function createEl                  (
   )                     ;
   actionRow.appendChild(startRunBtn);
   actionRow.appendChild(resumeRunBtn);
-  sheetEl.appendChild(actionRow);
+  tabQueuePanel.appendChild(actionRow);
 
   const walletSection = createEl(document, 'div', { class: 'ac-section' });
   walletSection.appendChild(
     createEl(document, 'div', undefined, '歸戶型優惠碼佇列（Wallet Coupons）：'),
   );
   const walletListEl = createEl(document, 'div', {
+    class: 'ac-scroll-list',
     'data-role': 'wallet-coupon-list',
   });
   walletSection.appendChild(walletListEl);
-  sheetEl.appendChild(walletSection);
+  tabQueuePanel.appendChild(walletSection);
 
   const parserSection = createEl(document, 'div', { class: 'ac-section' });
   parserSection.appendChild(
@@ -2167,8 +2487,83 @@ function createEl                  (
     'data-role': 'candidate-chip-list',
   });
   parserSection.appendChild(candidateChipListEl);
-  sheetEl.appendChild(parserSection);
+  tabQueuePanel.appendChild(parserSection);
 
+  // History Panel Setup
+  const historyFilterBar = createEl(document, 'div', {
+    class: 'ac-history-filter-bar',
+  });
+  const filterChipsContainer = createEl(document, 'div', {
+    class: 'ac-filter-chips',
+  });
+
+  const filterOptions                                                           = [
+    { key: 'all', label: '全部' },
+    { key: 'claimed', label: '🌸 成功' },
+    { key: 'already_claimed', label: '✨ 已領過' },
+    { key: 'invalid_or_expired', label: '💭 無效' },
+  ];
+  const historyFilterChips                = [];
+  for (const opt of filterOptions) {
+    const chip = createEl(
+      document,
+      'button',
+      {
+        type: 'button',
+        class: 'ac-filter-chip',
+        'data-role': `history-filter-${opt.key}`,
+        'data-filter': opt.key,
+        'data-active': opt.key === 'all' ? 'true' : 'false',
+      },
+      opt.label,
+    );
+    chip.addEventListener('click', () => {
+      historyFilter = opt.key;
+      renderHistory();
+    });
+    historyFilterChips.push(chip);
+    filterChipsContainer.appendChild(chip);
+  }
+  historyFilterBar.appendChild(filterChipsContainer);
+
+  const clearHistoryBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn ac-btn-danger ac-btn-sm',
+      'data-role': 'clear-history-btn',
+    },
+    '🗑️ 清空歷史',
+  )                     ;
+  clearHistoryBtn.addEventListener('click', () => {
+    const confirmFn =
+      typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm
+        : typeof (globalThis                                          ).confirm ===
+            'function'
+          ? (globalThis                                         ).confirm
+          : null;
+    const ok = confirmFn
+      ? confirmFn('確定要清空此平台的所有歷史領取紀錄嗎？')
+      : true;
+    if (ok) {
+      clearRedemptionRecords(platform.id);
+      liveStatusByCode.clear();
+      expandedHistoryCodes.clear();
+      renderState();
+    }
+  });
+  historyFilterBar.appendChild(clearHistoryBtn);
+  tabHistoryPanel.appendChild(historyFilterBar);
+
+  const historyListEl = createEl(document, 'div', {
+    class: 'ac-scroll-list',
+    'data-role': 'history-coupon-list',
+  });
+  tabHistoryPanel.appendChild(historyListEl);
+
+  // Checkout Panel Setup
   const checkoutSection = createEl(document, 'div', { class: 'ac-section' });
   checkoutSection.appendChild(
     createEl(
@@ -2179,12 +2574,36 @@ function createEl                  (
     ),
   );
   const checkoutListEl = createEl(document, 'div', {
+    class: 'ac-scroll-list',
     'data-role': 'checkout-coupon-list',
   });
   checkoutSection.appendChild(checkoutListEl);
-  sheetEl.appendChild(checkoutSection);
+  tabCheckoutPanel.appendChild(checkoutSection);
+
+  sheetEl.appendChild(tabQueuePanel);
+  sheetEl.appendChild(tabHistoryPanel);
+  sheetEl.appendChild(tabCheckoutPanel);
 
   shadow.appendChild(sheetEl);
+
+  function switchTab(tab                                  )       {
+    activeTab = tab;
+    tabQueueBtn.setAttribute('data-active', tab === 'queue' ? 'true' : 'false');
+    tabHistoryBtn.setAttribute('data-active', tab === 'history' ? 'true' : 'false');
+    tabCheckoutBtn.setAttribute('data-active', tab === 'checkout' ? 'true' : 'false');
+
+    tabQueuePanel.setAttribute('data-active', tab === 'queue' ? 'true' : 'false');
+    tabHistoryPanel.setAttribute('data-active', tab === 'history' ? 'true' : 'false');
+    tabCheckoutPanel.setAttribute('data-active', tab === 'checkout' ? 'true' : 'false');
+
+    if (tab === 'history') {
+      renderHistory();
+    }
+  }
+
+  tabQueueBtn.addEventListener('click', () => switchTab('queue'));
+  tabHistoryBtn.addEventListener('click', () => switchTab('history'));
+  tabCheckoutBtn.addEventListener('click', () => switchTab('checkout'));
 
   function getEffectiveWalletCodes()           {
     return dedupeCouponCodes([
@@ -2220,6 +2639,165 @@ function createEl                  (
         ? `${code} (${title}) [${status}]`
         : `${code} [${status}]`;
       walletListEl.appendChild(row);
+    }
+  }
+
+  function renderHistory()       {
+    clearChildren(historyListEl);
+    const records = loadRedemptionRecords(platform.id);
+    const allRecords = Object.values(records);
+    historyBadgeEl.textContent = String(allRecords.length);
+
+    for (const chip of historyFilterChips) {
+      chip.setAttribute(
+        'data-active',
+        chip.getAttribute('data-filter') === historyFilter ? 'true' : 'false',
+      );
+    }
+
+    const filtered = allRecords.filter((rec) => {
+      if (historyFilter === 'all') return true;
+      return rec.outcome === historyFilter;
+    });
+
+    filtered.sort((a, b) => (b.attemptedAt || '').localeCompare(a.attemptedAt || ''));
+
+    if (filtered.length === 0) {
+      const emptyNotice = createEl(
+        document,
+        'div',
+        {
+          style:
+            'text-align: center; padding: 14px 8px; color: #9d174d; font-size: 11px;',
+        },
+        '🌸 尚無符合條件的領取紀錄',
+      );
+      historyListEl.appendChild(emptyNotice);
+      return;
+    }
+
+    for (const rec of filtered) {
+      const isExpanded = expandedHistoryCodes.has(rec.code);
+      const card = createEl(document, 'div', {
+        class: 'ac-accordion-card',
+        'data-role': 'history-item',
+        'data-code': rec.code,
+        'data-outcome': rec.outcome,
+        'data-expanded': isExpanded ? 'true' : 'false',
+      });
+
+      const header = createEl(document, 'div', {
+        class: 'ac-accordion-header',
+        'data-role': 'accordion-toggle',
+      });
+
+      const left = createEl(document, 'div', {
+        class: 'ac-accordion-header-left',
+      });
+      const codeSpan = createEl(document, 'span', undefined, rec.code);
+      left.appendChild(codeSpan);
+
+      const badge = createEl(
+        document,
+        'span',
+        { class: `ac-badge ac-badge-${rec.outcome}` },
+        rec.outcome === 'claimed'
+          ? '🌸 成功'
+          : rec.outcome === 'already_claimed'
+            ? '✨ 已領過'
+            : '💭 無效',
+      );
+      left.appendChild(badge);
+      header.appendChild(left);
+
+      const right = createEl(document, 'div', {
+        class: 'ac-accordion-header-right',
+      });
+      const timeStr = rec.attemptedAt
+        ? rec.attemptedAt.slice(5, 16).replace('T', ' ')
+        : '';
+      const timeSpan = createEl(document, 'span', undefined, timeStr);
+      const chevron = createEl(document, 'span', { class: 'ac-chevron' }, '▼');
+      right.appendChild(timeSpan);
+      right.appendChild(chevron);
+      header.appendChild(right);
+
+      header.addEventListener('click', () => {
+        if (expandedHistoryCodes.has(rec.code)) {
+          expandedHistoryCodes.delete(rec.code);
+          card.setAttribute('data-expanded', 'false');
+        } else {
+          expandedHistoryCodes.add(rec.code);
+          card.setAttribute('data-expanded', 'true');
+        }
+      });
+      card.appendChild(header);
+
+      const body = createEl(document, 'div', {
+        class: 'ac-accordion-body',
+        'data-role': 'accordion-body',
+      });
+      const msgDiv = createEl(
+        document,
+        'div',
+        undefined,
+        `訊息：${rec.message || '無詳細訊息'}`,
+      );
+      body.appendChild(msgDiv);
+
+      const actionsRow = createEl(document, 'div', {
+        class: 'ac-accordion-actions',
+      });
+      const copyBtn = createEl(
+        document,
+        'button',
+        {
+          type: 'button',
+          class: 'ac-btn ac-btn-secondary ac-btn-sm',
+          'data-action': 'copy-history-code',
+        },
+        '📋 複製',
+      );
+      copyBtn.addEventListener('click', (e) => {
+        e?.stopPropagation?.();
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.clipboard &&
+          typeof navigator.clipboard.writeText === 'function'
+        ) {
+          void navigator.clipboard.writeText(rec.code);
+        }
+        copyBtn.textContent = '已複製';
+        setTimeout(() => {
+          copyBtn.textContent = '📋 複製';
+        }, 1500);
+      });
+      actionsRow.appendChild(copyBtn);
+
+      const resetBtn = createEl(
+        document,
+        'button',
+        {
+          type: 'button',
+          class: 'ac-btn ac-btn-secondary ac-btn-sm',
+          'data-action': 'reset-history-code',
+          'data-code': rec.code,
+        },
+        '🔄 重置此券',
+      );
+      resetBtn.addEventListener('click', (e) => {
+        e?.stopPropagation?.();
+        deleteRedemptionRecord(platform.id, rec.code);
+        expandedHistoryCodes.delete(rec.code);
+        liveStatusByCode.delete(rec.code);
+        renderState();
+      });
+      actionsRow.appendChild(resetBtn);
+
+      body.appendChild(actionsRow);
+      card.appendChild(body);
+
+      historyListEl.appendChild(card);
     }
   }
 
@@ -2289,6 +2867,7 @@ function createEl                  (
     summaryEl.textContent = `成功: ${summaryCounts.claimed} | 已領過: ${summaryCounts.already_claimed} | 無效/過期: ${summaryCounts.invalid_or_expired}`;
     pillBadge.textContent = String(computeUntriedCount());
     renderWalletCoupons();
+    renderHistory();
   }
 
   async function syncFeed()                {

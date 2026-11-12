@@ -3,6 +3,12 @@ import { beforeEach, describe, it } from 'node:test';
 import { FakeShadowRoot, installFakeDom } from './helpers/fake-dom.ts';
 import { mountAutoCoupon } from '../src/userscript/app.ts';
 import { recordNetworkFeedbackText } from '../src/userscript/platforms.ts';
+import {
+  clearRedemptionRecords,
+  deleteRedemptionRecord,
+  loadRedemptionRecords,
+  saveRedemptionRecord,
+} from '../src/userscript/storage.ts';
 
 describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () => {
   beforeEach(() => {
@@ -775,5 +781,173 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     const { input, submit } = controller.platform.findInputAndSubmit(env.document);
     assert.equal(input, null);
     assert.equal(submit, null);
+  });
+
+  it('supports 3-tab navigation, renders history records with expandable accordion diagnostics, allows single reset and clear-all with confirm prompt', async () => {
+    clearRedemptionRecords('foodpanda');
+    saveRedemptionRecord(
+      'foodpanda',
+      'COUPON_CLAIMED',
+      'claimed',
+      '成功領取優惠券',
+    );
+    saveRedemptionRecord(
+      'foodpanda',
+      'COUPON_ALREADY',
+      'already_claimed',
+      '此優惠碼已存在於優惠券匣',
+    );
+    saveRedemptionRecord(
+      'foodpanda',
+      'COUPON_INVALID',
+      'invalid_or_expired',
+      '優惠碼無效或已過期',
+    );
+
+    const controller = mountAutoCoupon({
+      url: 'https://www.foodpanda.com.tw/vouchers',
+      autoSyncFeed: false,
+    });
+
+    const host = document.querySelector('#auto-coupon-root');
+    assert.ok(host, 'Expected #auto-coupon-root');
+    const shadow = host.shadowRoot!;
+
+    // Open sheet
+    const pill = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="floating-pill"]',
+    )!;
+    pill.click();
+
+    // Verify Tab buttons exist
+    const tabQueueBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="tab-queue"]',
+    );
+    const tabHistoryBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="tab-history"]',
+    );
+    const tabCheckoutBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="tab-checkout"]',
+    );
+    assert.ok(tabQueueBtn, 'Queue tab button should exist');
+    assert.ok(tabHistoryBtn, 'History tab button should exist');
+    assert.ok(tabCheckoutBtn, 'Checkout tab button should exist');
+
+    // Default active tab is queue
+    assert.equal(tabQueueBtn.getAttribute('data-active'), 'true');
+    assert.equal(tabHistoryBtn.getAttribute('data-active'), 'false');
+
+    const historyBadge = shadow.querySelector<HTMLElement>(
+      '[data-role="history-badge"]',
+    );
+    assert.ok(historyBadge, 'History badge should exist');
+    assert.equal(historyBadge.textContent, '3');
+
+    // Switch to history tab
+    tabHistoryBtn.click();
+    assert.equal(tabHistoryBtn.getAttribute('data-active'), 'true');
+    assert.equal(tabQueueBtn.getAttribute('data-active'), 'false');
+
+    const historyPanel = shadow.querySelector<HTMLElement>(
+      '[data-panel="history"]',
+    );
+    assert.ok(historyPanel, 'History panel should exist');
+    assert.equal(historyPanel.getAttribute('data-active'), 'true');
+
+    // Verify 3 accordion items rendered
+    const historyItems = shadow.querySelectorAll<HTMLElement>(
+      '[data-role="history-item"]',
+    );
+    assert.equal(historyItems.length, 3);
+
+    // Test expanding accordion card for invalid coupon
+    const invalidCard = Array.from(historyItems).find(
+      (el) => el.getAttribute('data-code') === 'COUPON_INVALID',
+    );
+    assert.ok(invalidCard, 'Invalid coupon card should be present');
+    assert.equal(invalidCard.getAttribute('data-expanded'), 'false');
+
+    const toggle = invalidCard.querySelector<HTMLElement>(
+      '[data-role="accordion-toggle"]',
+    )!;
+    toggle.click();
+    assert.equal(invalidCard.getAttribute('data-expanded'), 'true');
+
+    const body = invalidCard.querySelector<HTMLElement>(
+      '[data-role="accordion-body"]',
+    )!;
+    assert.ok(
+      body.textContent?.includes('優惠碼無效或已過期'),
+      'Accordion body should display error message',
+    );
+
+    // Test filter chips
+    const claimedFilter = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="history-filter-claimed"]',
+    )!;
+    claimedFilter.click();
+    let currentCards = shadow.querySelectorAll<HTMLElement>(
+      '[data-role="history-item"]',
+    );
+    assert.equal(currentCards.length, 1);
+    assert.equal(currentCards[0]?.getAttribute('data-code'), 'COUPON_CLAIMED');
+
+    // Reset filter to all
+    const allFilter = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="history-filter-all"]',
+    )!;
+    allFilter.click();
+    currentCards = shadow.querySelectorAll<HTMLElement>(
+      '[data-role="history-item"]',
+    );
+    assert.equal(currentCards.length, 3);
+
+    // Test single item reset
+    const resetBtn = invalidCard.querySelector<HTMLButtonElement>(
+      '[data-action="reset-history-code"][data-code="COUPON_INVALID"]',
+    )!;
+    resetBtn.click();
+
+    // Verify storage record deleted
+    const recordsAfterReset = loadRedemptionRecords('foodpanda');
+    assert.equal(recordsAfterReset['COUPON_INVALID'], undefined);
+    assert.equal(historyBadge.textContent, '2');
+
+    // Test clear all with confirm dialog
+    let confirmCalled = false;
+    const testConfirm = (msg: string) => {
+      confirmCalled = true;
+      assert.ok(msg.includes('清空此平台的所有歷史領取紀錄'));
+      return true;
+    };
+    (window as unknown as { confirm: (msg: string) => boolean }).confirm = testConfirm;
+    (globalThis as unknown as { confirm: (msg: string) => boolean }).confirm = testConfirm;
+
+    const clearBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="clear-history-btn"]',
+    )!;
+    clearBtn.click();
+    assert.ok(confirmCalled, 'window.confirm should have been prompted');
+
+    const recordsAfterClear = loadRedemptionRecords('foodpanda');
+    assert.deepEqual(recordsAfterClear, {});
+    assert.equal(historyBadge.textContent, '0');
+
+    // Verify empty notice rendered
+    const listEl = shadow.querySelector<HTMLElement>(
+      '[data-role="history-coupon-list"]',
+    )!;
+    assert.ok(
+      listEl.textContent?.includes('尚無符合條件的領取紀錄'),
+      'Should display empty notice when history is cleared',
+    );
+
+    // Switch to checkout tab
+    tabCheckoutBtn.click();
+    assert.equal(tabCheckoutBtn.getAttribute('data-active'), 'true');
+    const checkoutPanel = shadow.querySelector<HTMLElement>(
+      '[data-panel="checkout"]',
+    )!;
+    assert.equal(checkoutPanel.getAttribute('data-active'), 'true');
   });
 });
