@@ -1,7 +1,5 @@
 import type { PlatformId, RedemptionOutcome } from '../shared/types.ts';
 
-declare const unsafeWindow: Window | undefined;
-
 export interface PlatformSubmissionResult {
   outcome: RedemptionOutcome;
   message: string;
@@ -632,13 +630,6 @@ export function installNetworkFeedbackSniffer(): void {
     }
   } catch {
     // Ignore window hook errors
-  }
-  try {
-    if (typeof unsafeWindow !== 'undefined' && unsafeWindow) {
-      hookWindowNetworkApis(unsafeWindow);
-    }
-  } catch {
-    // Ignore unsafeWindow access errors
   }
 }
 
