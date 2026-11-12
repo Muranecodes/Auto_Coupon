@@ -1,16 +1,17 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.3
+// @version      1.1.4
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
-// @match        https://www.foodpanda.com.tw/*
-// @match        https://foodpanda.com.tw/*
+// @match        *://*.foodpanda.com.tw/*
+// @match        *://foodpanda.com.tw/*
 // @match        https://*.foodpanda.com.tw/*
-// @match        https://www.ubereats.com/*
-// @match        https://ubereats.com/*
+// @match        https://foodpanda.com.tw/*
+// @match        *://*.ubereats.com/*
+// @match        *://ubereats.com/*
 // @match        https://*.ubereats.com/*
-// @noframes
+// @match        https://ubereats.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -1634,23 +1635,15 @@ function detectPlatform(url        )                  {
 // --- src/userscript/app.ts ---
 const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
 
-const HOST_STYLE_CSS =
-  'position: fixed !important;' +
-  'z-index: 2147483647 !important;' +
-  'top: 0 !important;' +
-  'left: 0 !important;' +
-  'width: 0 !important;' +
-  'height: 0 !important;' +
-  'overflow: visible !important;' +
-  'pointer-events: none !important;' +
-  'display: block !important;' +
-  '-webkit-transform: translateZ(0) !important;' +
-  'transform: translateZ(0) !important;';
-
 function applyHostStyles(el             )       {
   try {
-    el.style.cssText = HOST_STYLE_CSS;
-    el.setAttribute('style', HOST_STYLE_CSS);
+    el.style.cssText =
+      'position: static !important;' +
+      'display: block !important;' +
+      'margin: 0 !important;' +
+      'padding: 0 !important;' +
+      'border: none !important;' +
+      'background: transparent !important;';
   } catch {
     // Ignore in non-browser env
   }
@@ -1659,18 +1652,14 @@ function applyHostStyles(el             )       {
 const SHADOW_STYLES = `
   :host {
     all: initial;
-    display: block !important;
-    position: static !important;
+    display: block;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
   }
   .ac-pill {
     position: fixed;
     right: 16px;
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
     z-index: 2147483647;
-    pointer-events: auto;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1681,11 +1670,12 @@ const SHADOW_STYLES = `
     color: #fff;
     font-size: 14px;
     font-weight: 700;
-    box-shadow: 0 6px 20px rgba(215, 15, 100, 0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   .ac-pill-badge {
     background: #fff;
@@ -1701,9 +1691,6 @@ const SHADOW_STYLES = `
     right: 0;
     bottom: 0;
     z-index: 2147483647;
-    pointer-events: auto;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
     background: #ffffff;
     color: #1f2937;
     border-radius: 20px 20px 0 0;
@@ -1845,15 +1832,25 @@ function createEl                  (
   const platform = detectPlatform(currentUrl);
 
   const existingHost = document.querySelector('#auto-coupon-root')   
-                                                  
+                      
+                                 
+                                              
+        
           ;
   if (existingHost) {
+    if (
+      existingHost.__acController &&
+      existingHost.shadowRoot?.querySelector('[data-role="floating-pill"]')
+    ) {
+      return existingHost.__acController;
+    }
     existingHost.__acCleanup?.();
     existingHost.remove();
   }
 
   const host = document.createElement('div')                   
                              
+                                          
    ;
   host.id = 'auto-coupon-root';
   applyHostStyles(host);
@@ -2488,7 +2485,7 @@ function createEl                  (
 
   renderState();
 
-  return {
+  const controller                       = {
     platform,
     setQueue(codes          ) {
       manualQueueCodes = dedupeCouponCodes(codes);
@@ -2511,19 +2508,14 @@ function createEl                  (
       }
     },
   };
+
+  host.__acController = controller;
+  return controller;
 }
 
 // --- src/userscript/index.ts ---
 function bootAutoCoupon()       {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-  // Never execute inside subframes or iframes (e.g. tracking, payment, map iframes on Uber Eats)
-  try {
-    if (window.top && window.top !== window) return;
-  } catch {
-    // Cross-origin iframe throws error accessing window.top
-    return;
-  }
 
   const start = ()       => {
     try {
@@ -2533,17 +2525,17 @@ function bootAutoCoupon()       {
     }
   };
 
+  // Immediate start
+  start();
+
+  // Listen for DOMContentLoaded if page is still loading
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
-    // Backup timer in case DOMContentLoaded fired before Stay attached listener
-    setTimeout(() => {
-      if (!document.querySelector('#auto-coupon-root')) {
-        start();
-      }
-    }, 500);
-  } else {
-    start();
   }
+
+  // Backup timers for SPA / React hydration (Uber Eats & foodpanda)
+  setTimeout(start, 500);
+  setTimeout(start, 1500);
 }
 
 bootAutoCoupon();

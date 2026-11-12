@@ -757,11 +757,9 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     const host = env.document.querySelector<HTMLElement>('#auto-coupon-root');
     assert.ok(host, 'Expected #auto-coupon-root host to be mounted');
 
-    // Verify host has Light DOM styles with maximum z-index and fixed position
+    // Verify host has Light DOM styles with clean static layout (no transform containing-block traps)
     const hostStyle = host.getAttribute('style') ?? host.style.cssText ?? '';
-    assert.ok(hostStyle.includes('position: fixed'), 'Host must have position: fixed');
-    assert.ok(hostStyle.includes('z-index: 2147483647'), 'Host must have maximum z-index 2147483647');
-    assert.ok(hostStyle.includes('pointer-events: none'), 'Host must be transparent to pointer events');
+    assert.ok(hostStyle.includes('position: static'), 'Host must have position: static to avoid containing block trap');
 
     // Verify floating pill inside shadow root
     const pill = host.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="floating-pill"]');

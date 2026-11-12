@@ -53,23 +53,15 @@ export interface AutoCouponController {
 
 const DEFAULT_DELAY_FN = () => 650 + Math.floor(Math.random() * 550);
 
-const HOST_STYLE_CSS =
-  'position: fixed !important;' +
-  'z-index: 2147483647 !important;' +
-  'top: 0 !important;' +
-  'left: 0 !important;' +
-  'width: 0 !important;' +
-  'height: 0 !important;' +
-  'overflow: visible !important;' +
-  'pointer-events: none !important;' +
-  'display: block !important;' +
-  '-webkit-transform: translateZ(0) !important;' +
-  'transform: translateZ(0) !important;';
-
 function applyHostStyles(el: HTMLElement): void {
   try {
-    el.style.cssText = HOST_STYLE_CSS;
-    el.setAttribute('style', HOST_STYLE_CSS);
+    el.style.cssText =
+      'position: static !important;' +
+      'display: block !important;' +
+      'margin: 0 !important;' +
+      'padding: 0 !important;' +
+      'border: none !important;' +
+      'background: transparent !important;';
   } catch {
     // Ignore in non-browser env
   }
@@ -78,18 +70,14 @@ function applyHostStyles(el: HTMLElement): void {
 const SHADOW_STYLES = `
   :host {
     all: initial;
-    display: block !important;
-    position: static !important;
+    display: block;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
   }
   .ac-pill {
     position: fixed;
     right: 16px;
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
     z-index: 2147483647;
-    pointer-events: auto;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -100,11 +88,12 @@ const SHADOW_STYLES = `
     color: #fff;
     font-size: 14px;
     font-weight: 700;
-    box-shadow: 0 6px 20px rgba(215, 15, 100, 0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   .ac-pill-badge {
     background: #fff;
@@ -120,9 +109,6 @@ const SHADOW_STYLES = `
     right: 0;
     bottom: 0;
     z-index: 2147483647;
-    pointer-events: auto;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
     background: #ffffff;
     color: #1f2937;
     border-radius: 20px 20px 0 0;
@@ -266,15 +252,25 @@ export function mountAutoCoupon(
   const platform = detectPlatform(currentUrl);
 
   const existingHost = document.querySelector('#auto-coupon-root') as
-    | (HTMLElement & { __acCleanup?: () => void })
+    | (HTMLElement & {
+        __acCleanup?: () => void;
+        __acController?: AutoCouponController;
+      })
     | null;
   if (existingHost) {
+    if (
+      existingHost.__acController &&
+      existingHost.shadowRoot?.querySelector('[data-role="floating-pill"]')
+    ) {
+      return existingHost.__acController;
+    }
     existingHost.__acCleanup?.();
     existingHost.remove();
   }
 
   const host = document.createElement('div') as HTMLElement & {
     __acCleanup?: () => void;
+    __acController?: AutoCouponController;
   };
   host.id = 'auto-coupon-root';
   applyHostStyles(host);
@@ -909,7 +905,7 @@ export function mountAutoCoupon(
 
   renderState();
 
-  return {
+  const controller: AutoCouponController = {
     platform,
     setQueue(codes: string[]) {
       manualQueueCodes = dedupeCouponCodes(codes);
@@ -932,4 +928,7 @@ export function mountAutoCoupon(
       }
     },
   };
+
+  host.__acController = controller;
+  return controller;
 }

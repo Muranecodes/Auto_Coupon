@@ -3,14 +3,6 @@ import { mountAutoCoupon } from './app.ts';
 function bootAutoCoupon(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  // Never execute inside subframes or iframes (e.g. tracking, payment, map iframes on Uber Eats)
-  try {
-    if (window.top && window.top !== window) return;
-  } catch {
-    // Cross-origin iframe throws error accessing window.top
-    return;
-  }
-
   const start = (): void => {
     try {
       mountAutoCoupon();
@@ -19,18 +11,19 @@ function bootAutoCoupon(): void {
     }
   };
 
+  // Immediate start
+  start();
+
+  // Listen for DOMContentLoaded if page is still loading
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
-    // Backup timer in case DOMContentLoaded fired before Stay attached listener
-    setTimeout(() => {
-      if (!document.querySelector('#auto-coupon-root')) {
-        start();
-      }
-    }, 500);
-  } else {
-    start();
   }
+
+  // Backup timers for SPA / React hydration (Uber Eats & foodpanda)
+  setTimeout(start, 500);
+  setTimeout(start, 1500);
 }
 
 bootAutoCoupon();
+
 
