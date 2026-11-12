@@ -1259,7 +1259,7 @@ export const uberEatsAdapter: PlatformAdapter = createPlatformAdapter({
 });
 
 export function detectPlatform(url: string): PlatformAdapter {
-  if (/ubereats\.com/i.test(url)) {
+  if (/ubereats\.com/i.test(url) || /uber\.com/i.test(url)) {
     return uberEatsAdapter;
   }
   return foodpandaAdapter;

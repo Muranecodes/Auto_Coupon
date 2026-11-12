@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.5
+// @version      1.1.6
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -12,6 +12,10 @@
 // @match        *://ubereats.com/*
 // @match        https://*.ubereats.com/*
 // @match        https://ubereats.com/*
+// @match        *://*.uber.com/*
+// @match        *://uber.com/*
+// @match        https://*.uber.com/*
+// @match        https://uber.com/*
 // @include      *://*.foodpanda.com.tw/*
 // @include      *://foodpanda.com.tw/*
 // @include      https://*.foodpanda.com.tw/*
@@ -21,6 +25,11 @@
 // @include      https://*.ubereats.com/*
 // @include      https://ubereats.com/*
 // @include      https://*ubereats.com/*
+// @include      *://*.uber.com/*
+// @include      *://uber.com/*
+// @include      https://*.uber.com/*
+// @include      https://uber.com/*
+// @include      https://*uber.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -1635,7 +1644,7 @@ const uberEatsAdapter                  = createPlatformAdapter({
     /^(?:新增優惠序號|輸入優惠序號|新增優惠|輸入優惠碼|新增折扣碼|Add promo code|Add promo|優惠方案)$/i,
 });
 function detectPlatform(url        )                  {
-  if (/ubereats\.com/i.test(url)) {
+  if (/ubereats\.com/i.test(url) || /uber\.com/i.test(url)) {
     return uberEatsAdapter;
   }
   return foodpandaAdapter;
@@ -1944,11 +1953,50 @@ function createEl                  (
     '0',
   );
   pillBtn.appendChild(pillBadge);
-  if (platform.id === 'ubereats') {
-    pillBtn.style.background = 'linear-gradient(135deg, #06C167, #10B981)';
-    pillBtn.style.boxShadow = '0 6px 20px rgba(6, 193, 103, 0.4)';
-    pillBadge.style.color = '#06C167';
-  }
+  const isUber = platform.id === 'ubereats';
+  const pillBg = isUber
+    ? 'linear-gradient(135deg, #06C167, #10B981)'
+    : 'linear-gradient(135deg, #d70f64, #ff2b85)';
+  const badgeColor = isUber ? '#06C167' : '#d70f64';
+  const shadowColor = isUber
+    ? 'rgba(6, 193, 103, 0.45)'
+    : 'rgba(215, 15, 100, 0.4)';
+
+  pillBtn.style.background = pillBg;
+  pillBtn.style.boxShadow = `0 6px 24px ${shadowColor}`;
+  pillBadge.style.color = badgeColor;
+
+  pillBtn.style.cssText =
+    'position: fixed !important;' +
+    'right: 16px !important;' +
+    'bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;' +
+    'z-index: 2147483647 !important;' +
+    'display: inline-flex !important;' +
+    'align-items: center !important;' +
+    'gap: 6px !important;' +
+    'padding: 10px 14px !important;' +
+    'border-radius: 999px !important;' +
+    'border: 2px solid rgba(255, 255, 255, 0.95) !important;' +
+    `background: ${pillBg} !important;` +
+    'color: #ffffff !important;' +
+    'font-size: 14px !important;' +
+    'font-weight: 700 !important;' +
+    `box-shadow: 0 6px 24px ${shadowColor} !important;` +
+    'cursor: pointer !important;' +
+    'touch-action: none !important;' +
+    '-webkit-user-select: none !important;' +
+    'user-select: none !important;' +
+    '-webkit-tap-highlight-color: transparent !important;';
+
+  pillBadge.style.cssText =
+    'background: #ffffff !important;' +
+    `color: ${badgeColor} !important;` +
+    'border-radius: 999px !important;' +
+    'padding: 2px 7px !important;' +
+    'font-size: 12px !important;' +
+    'font-weight: 800 !important;' +
+    'display: inline-block !important;';
+
   shadow.appendChild(pillBtn);
 
   const sheetEl = createEl(document, 'section', {

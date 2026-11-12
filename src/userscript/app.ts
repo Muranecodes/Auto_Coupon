@@ -355,11 +355,50 @@ export function mountAutoCoupon(
     '0',
   );
   pillBtn.appendChild(pillBadge);
-  if (platform.id === 'ubereats') {
-    pillBtn.style.background = 'linear-gradient(135deg, #06C167, #10B981)';
-    pillBtn.style.boxShadow = '0 6px 20px rgba(6, 193, 103, 0.4)';
-    pillBadge.style.color = '#06C167';
-  }
+  const isUber = platform.id === 'ubereats';
+  const pillBg = isUber
+    ? 'linear-gradient(135deg, #06C167, #10B981)'
+    : 'linear-gradient(135deg, #d70f64, #ff2b85)';
+  const badgeColor = isUber ? '#06C167' : '#d70f64';
+  const shadowColor = isUber
+    ? 'rgba(6, 193, 103, 0.45)'
+    : 'rgba(215, 15, 100, 0.4)';
+
+  pillBtn.style.background = pillBg;
+  pillBtn.style.boxShadow = `0 6px 24px ${shadowColor}`;
+  pillBadge.style.color = badgeColor;
+
+  pillBtn.style.cssText =
+    'position: fixed !important;' +
+    'right: 16px !important;' +
+    'bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;' +
+    'z-index: 2147483647 !important;' +
+    'display: inline-flex !important;' +
+    'align-items: center !important;' +
+    'gap: 6px !important;' +
+    'padding: 10px 14px !important;' +
+    'border-radius: 999px !important;' +
+    'border: 2px solid rgba(255, 255, 255, 0.95) !important;' +
+    `background: ${pillBg} !important;` +
+    'color: #ffffff !important;' +
+    'font-size: 14px !important;' +
+    'font-weight: 700 !important;' +
+    `box-shadow: 0 6px 24px ${shadowColor} !important;` +
+    'cursor: pointer !important;' +
+    'touch-action: none !important;' +
+    '-webkit-user-select: none !important;' +
+    'user-select: none !important;' +
+    '-webkit-tap-highlight-color: transparent !important;';
+
+  pillBadge.style.cssText =
+    'background: #ffffff !important;' +
+    `color: ${badgeColor} !important;` +
+    'border-radius: 999px !important;' +
+    'padding: 2px 7px !important;' +
+    'font-size: 12px !important;' +
+    'font-weight: 800 !important;' +
+    'display: inline-block !important;';
+
   shadow.appendChild(pillBtn);
 
   const sheetEl = createEl(document, 'section', {
