@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.1.0
+// @version      1.1.1
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        https://www.foodpanda.com.tw/*
@@ -1019,7 +1019,9 @@ function findInputByLabelOrFallback(doc          )                          {
   if (
     lastUserFocusedInput &&
     isCandidatePromoInput(lastUserFocusedInput) &&
-    doc.body?.querySelectorAll('input').includes(lastUserFocusedInput)
+    Array.from(doc.body?.querySelectorAll('input') ?? []).includes(
+      lastUserFocusedInput,
+    )
   ) {
     return lastUserFocusedInput;
   }
@@ -1120,7 +1122,7 @@ function findSubmitNearInput(
       const buttons = modalAnc.querySelectorAll             (
         'button, [role="button"], input[type="submit"]',
       );
-      const candidates = buttons.filter((btn) => {
+      const candidates = Array.from(buttons).filter((btn) => {
         if (!isElementDisplayed(btn)) return false;
         const text = (btn.textContent ?? '').trim();
         const ariaLabel = (btn.getAttribute('aria-label') ?? '').trim();
@@ -1235,9 +1237,13 @@ function isCodeInWalletDom(
     }
     if (feedbackElements.has(el)) continue;
     if (el.children && el.children.length > 0) {
+      const clsAttr =
+        typeof el.className === 'string'
+          ? el.className
+          : (el.getAttribute?.('class') ?? '');
       const isCard =
-        el.className?.includes('voucher-card') ||
-        el.getAttribute('data-testid')?.includes('voucher-card');
+        clsAttr.includes('voucher-card') ||
+        Boolean(el.getAttribute?.('data-testid')?.includes('voucher-card'));
       if (!isCard) continue;
     }
     const text = (el.textContent ?? '').trim();
@@ -2093,45 +2099,58 @@ const SHADOW_STYLES = `
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
-      const snapshot = platform.captureSubmissionSnapshot?.(document, code);
+      try {
+        const snapshot = platform.captureSubmissionSnapshot?.(document, code);
 
-      setNativeInputValue(input, code);
-      await Promise.resolve();
-      if (!submit) {
-        ({ submit } = platform.findInputAndSubmit(document));
-      }
-      triggerSubmitOrEnter(input, submit);
-
-      const waitTime = Math.max(0, delayFn());
-      if (waitTime > 0) {
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-      }
-
-      if (snapshot && platform.hasSubmissionUpdate) {
-        const pollInterval = Math.min(350, Math.max(12, waitTime));
-        for (
-          let attempt = 0;
-          attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
-          attempt++
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        setNativeInputValue(input, code);
+        await Promise.resolve();
+        if (!submit) {
+          ({ submit } = platform.findInputAndSubmit(document));
         }
-      }
+        triggerSubmitOrEnter(input, submit);
 
-      const postBlock = platform.detectChallengeOrAuthBlock(document);
-      if (postBlock) {
-        liveStatusByCode.set(code, 'pending');
-        pausedRemainingCodes = filteredCodes.slice(i);
-        runStatusText = `已暫停：${postBlock}`;
+        const waitTime = Math.max(0, delayFn());
+        if (waitTime > 0) {
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+
+        if (snapshot && platform.hasSubmissionUpdate) {
+          const pollInterval = Math.min(350, Math.max(12, waitTime));
+          for (
+            let attempt = 0;
+            attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
+            attempt++
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
+        }
+
+        const postBlock = platform.detectChallengeOrAuthBlock(document);
+        if (postBlock) {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          runStatusText = `已暫停：${postBlock}`;
+          renderState();
+          return;
+        }
+
+        const result = platform.classifyFeedback(document, snapshot);
+        liveStatusByCode.set(code, result.outcome);
+        summaryCounts[result.outcome] += 1;
+        saveRedemptionRecord(platform.id, code, result.outcome, result.message);
         renderState();
-        return;
+      } catch {
+        const fallbackResult = platform.classifyFeedback(document);
+        liveStatusByCode.set(code, fallbackResult.outcome);
+        summaryCounts[fallbackResult.outcome] += 1;
+        saveRedemptionRecord(
+          platform.id,
+          code,
+          fallbackResult.outcome,
+          fallbackResult.message,
+        );
+        renderState();
       }
-
-      const result = platform.classifyFeedback(document, snapshot);
-      liveStatusByCode.set(code, result.outcome);
-      summaryCounts[result.outcome] += 1;
-      saveRedemptionRecord(platform.id, code, result.outcome, result.message);
-      renderState();
     }
 
     pausedRemainingCodes = [];

@@ -589,45 +589,58 @@ export function mountAutoCoupon(
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
-      const snapshot = platform.captureSubmissionSnapshot?.(document, code);
+      try {
+        const snapshot = platform.captureSubmissionSnapshot?.(document, code);
 
-      setNativeInputValue(input, code);
-      await Promise.resolve();
-      if (!submit) {
-        ({ submit } = platform.findInputAndSubmit(document));
-      }
-      triggerSubmitOrEnter(input, submit);
-
-      const waitTime = Math.max(0, delayFn());
-      if (waitTime > 0) {
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-      }
-
-      if (snapshot && platform.hasSubmissionUpdate) {
-        const pollInterval = Math.min(350, Math.max(12, waitTime));
-        for (
-          let attempt = 0;
-          attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
-          attempt++
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        setNativeInputValue(input, code);
+        await Promise.resolve();
+        if (!submit) {
+          ({ submit } = platform.findInputAndSubmit(document));
         }
-      }
+        triggerSubmitOrEnter(input, submit);
 
-      const postBlock = platform.detectChallengeOrAuthBlock(document);
-      if (postBlock) {
-        liveStatusByCode.set(code, 'pending');
-        pausedRemainingCodes = filteredCodes.slice(i);
-        runStatusText = `已暫停：${postBlock}`;
+        const waitTime = Math.max(0, delayFn());
+        if (waitTime > 0) {
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+
+        if (snapshot && platform.hasSubmissionUpdate) {
+          const pollInterval = Math.min(350, Math.max(12, waitTime));
+          for (
+            let attempt = 0;
+            attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
+            attempt++
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
+        }
+
+        const postBlock = platform.detectChallengeOrAuthBlock(document);
+        if (postBlock) {
+          liveStatusByCode.set(code, 'pending');
+          pausedRemainingCodes = filteredCodes.slice(i);
+          runStatusText = `已暫停：${postBlock}`;
+          renderState();
+          return;
+        }
+
+        const result = platform.classifyFeedback(document, snapshot);
+        liveStatusByCode.set(code, result.outcome);
+        summaryCounts[result.outcome] += 1;
+        saveRedemptionRecord(platform.id, code, result.outcome, result.message);
         renderState();
-        return;
+      } catch {
+        const fallbackResult = platform.classifyFeedback(document);
+        liveStatusByCode.set(code, fallbackResult.outcome);
+        summaryCounts[fallbackResult.outcome] += 1;
+        saveRedemptionRecord(
+          platform.id,
+          code,
+          fallbackResult.outcome,
+          fallbackResult.message,
+        );
+        renderState();
       }
-
-      const result = platform.classifyFeedback(document, snapshot);
-      liveStatusByCode.set(code, result.outcome);
-      summaryCounts[result.outcome] += 1;
-      saveRedemptionRecord(platform.id, code, result.outcome, result.message);
-      renderState();
     }
 
     pausedRemainingCodes = [];

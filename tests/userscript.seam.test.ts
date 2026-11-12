@@ -610,8 +610,8 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
         setTimeout(() => {
           const newCard = document.createElement('article');
           newCard.setAttribute('class', 'voucher-card');
-          newCard.textContent =
-            '天天省天天爽 — 美食外送滿額折扣優惠（不適用於部分指定餐廳，逾期過期無效）';
+          newCard.innerHTML =
+            '<svg class="fp-icon"><path d="M0 0"></path></svg><span>天天省天天爽 — 美食外送滿額折扣優惠（不適用於部分指定餐廳，逾期過期無效）</span>';
           voucherList.appendChild(newCard);
         }, 30);
       } else if (submitted === '週二星享日') {

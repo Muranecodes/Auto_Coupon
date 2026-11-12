@@ -653,7 +653,9 @@ function findInputByLabelOrFallback(doc: Document): HTMLInputElement | null {
   if (
     lastUserFocusedInput &&
     isCandidatePromoInput(lastUserFocusedInput) &&
-    doc.body?.querySelectorAll('input').includes(lastUserFocusedInput)
+    Array.from(doc.body?.querySelectorAll('input') ?? []).includes(
+      lastUserFocusedInput,
+    )
   ) {
     return lastUserFocusedInput;
   }
@@ -754,7 +756,7 @@ function findSubmitNearInput(
       const buttons = modalAnc.querySelectorAll<HTMLElement>(
         'button, [role="button"], input[type="submit"]',
       );
-      const candidates = buttons.filter((btn) => {
+      const candidates = Array.from(buttons).filter((btn) => {
         if (!isElementDisplayed(btn)) return false;
         const text = (btn.textContent ?? '').trim();
         const ariaLabel = (btn.getAttribute('aria-label') ?? '').trim();
@@ -869,9 +871,13 @@ function isCodeInWalletDom(
     }
     if (feedbackElements.has(el)) continue;
     if (el.children && el.children.length > 0) {
+      const clsAttr =
+        typeof el.className === 'string'
+          ? el.className
+          : (el.getAttribute?.('class') ?? '');
       const isCard =
-        el.className?.includes('voucher-card') ||
-        el.getAttribute('data-testid')?.includes('voucher-card');
+        clsAttr.includes('voucher-card') ||
+        Boolean(el.getAttribute?.('data-testid')?.includes('voucher-card'));
       if (!isCard) continue;
     }
     const text = (el.textContent ?? '').trim();

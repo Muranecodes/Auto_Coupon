@@ -128,7 +128,16 @@ export class FakeElement extends FakeNode {
     const v = String(value);
     this.attrs.set(name, v);
     if (name === 'id') this.id = v;
-    if (name === 'class') this.className = v;
+    if (name === 'class') {
+      if (typeof this.className === 'string') {
+        this.className = v;
+      } else {
+        (this as unknown as { className: unknown }).className = {
+          baseVal: v,
+          animVal: v,
+        };
+      }
+    }
     if (name.startsWith('data-')) {
       const camel = name
         .slice(5)
@@ -140,7 +149,11 @@ export class FakeElement extends FakeNode {
   getAttribute(name: string): string | null {
     if (name === 'id') return this.id || this.attrs.get('id') || null;
     if (name === 'class')
-      return this.className || this.attrs.get('class') || null;
+      return (
+        (typeof this.className === 'string' && this.className) ||
+        this.attrs.get('class') ||
+        null
+      );
     return this.attrs.has(name) ? this.attrs.get(name)! : null;
   }
 
@@ -284,7 +297,15 @@ export class FakeDocument extends FakeNode {
     if (upper === 'BUTTON') {
       return new FakeButtonElement(upper, this);
     }
-    return new FakeElement(upper, this);
+    const el = new FakeElement(upper, this);
+    if (upper === 'SVG' || upper === 'PATH') {
+      // In real browsers, SVGElement.className is an SVGAnimatedString object, not a string!
+      (el as unknown as { className: unknown }).className = {
+        baseVal: '',
+        animVal: '',
+      };
+    }
+    return el;
   }
 
   querySelector<T extends FakeElement = FakeElement>(
@@ -338,7 +359,11 @@ function matchesSingleToken(el: FakeElement, token: string): boolean {
 
   const classMatches = [...rem.matchAll(/\.([a-zA-Z0-9_-]+)/g)];
   if (classMatches.length > 0) {
-    const classList = (el.className || '').split(/\s+/).filter(Boolean);
+    const rawClass =
+      typeof el.className === 'string'
+        ? el.className
+        : (el.getAttribute('class') ?? '');
+    const classList = rawClass.split(/\s+/).filter(Boolean);
     for (const cm of classMatches) {
       if (!classList.includes(cm[1]!)) return false;
     }
