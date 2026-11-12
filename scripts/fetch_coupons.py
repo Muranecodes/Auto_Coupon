@@ -14,11 +14,13 @@ from selenium.webdriver.chrome.service import Service
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = REPO_ROOT / "data" / "coupons.json"
+CATEGORY_RULES_PATH = REPO_ROOT / "src" / "scraper" / "category-rules.json"
 STATE_FILE = REPO_ROOT / ".last_scrape_date"
 LOG_FILE = REPO_ROOT / "logs" / "daily_scrape.log"
 
+_category_rules = json.loads(CATEGORY_RULES_PATH.read_text(encoding="utf-8"))
 CHECKOUT_ONLY_REGEX = re.compile(
-    r"信用卡|刷卡|簽帳卡|金融卡|銀行|中國信託|中信|國泰世華|國泰|玉山|台新|富邦|永豐|聯邦|星展|滙豐|匯豐|兆豐|第一銀行|華南|合作金庫|彰銀|LINE\s*Pay\s*卡|CUBE\s*卡|結帳限定|結帳輸入|限定結帳|訂閱\s*pandapro",
+    "|".join(_category_rules["checkoutOnlyPatterns"]),
     re.IGNORECASE,
 )
 
@@ -258,11 +260,16 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
         log("⚠️ 未擷取到任何優惠碼且無既有檔案，保留現有 coupons.json。")
         return False
 
-    # 保留現有檔案中未過期且本次未被 CallingTaiwan 覆蓋的優惠券（例如來自 GitHub Actions 抓取到的官網或 kb56）
+    # 保留現有檔案中未過期且本次未被 CallingTaiwan 覆蓋的優惠券（例如來自 GitHub Actions 抓取到的官網或 kb56），並依最新規則重算分類
     for key, prev_item in existing_by_key.items():
         if key not in merged:
             if not is_coupon_expired(prev_item.get("expiresAt"), today_str):
-                merged[key] = prev_item
+                reclassified = classify_category(prev_item.get("title") or "")
+                updated_item = dict(prev_item)
+                if updated_item.get("category") != reclassified:
+                    updated_item["category"] = reclassified
+                    updated_item["updatedAt"] = now_iso
+                merged[key] = updated_item
 
     sorted_coupons = sorted(
         merged.values(),

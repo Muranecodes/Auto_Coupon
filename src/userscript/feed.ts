@@ -87,8 +87,8 @@ export const BUILTIN_COUPON_FEED: CouponFeed = {
     {
       code: '週年慶外帶',
       platform: 'ubereats',
-      title: '外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）',
-      category: 'checkout_only',
+      title: '外帶自取單筆滿 $179 享 7 折（最高折 $60）',
+      category: 'wallet',
       expiresAt: null,
       updatedAt: '2026-11-12T13:50:00.000Z',
     },

@@ -20,12 +20,16 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
             <td>輸入優惠碼：PANDAMART85</td>
           </tr>
           <tr>
-            <td>中國信託 LINE Pay 卡刷卡結帳滿 $300 折 $60（至 2026/11/30）</td>
+            <td>【外送-信用卡優惠】「中信LinePay卡」：舊會員消費滿 260 元現折 20 元（至 2026/11/30）</td>
             <td>優惠碼：CTBC2026</td>
           </tr>
           <tr>
             <td>國泰世華 CUBE 卡專屬結帳輸入優惠碼：CUBE88（至 2026/12/31）</td>
-            <td>銀行信用卡限定</td>
+            <td>結帳限定優惠</td>
+          </tr>
+          <tr>
+            <td>【pandapro】訂閱 pandapro 月費制享一個月免費（至 2026/12/31）</td>
+            <td>優惠碼：JOIN1</td>
           </tr>
           <tr>
             <td>上個月舊活動（有效期限至 2026/10/31）</td>
@@ -41,7 +45,9 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
         <ul>
           <li>外送點餐滿 $350 折 $70，輸入「優步十一月」（期限至 2026/11/28）</li>
           <li>優市生鮮滿 $599 折 $120，優惠序號：UEMART120（期限 11/30）</li>
-          <li>玉山銀行信用卡結帳限定折 $50，輸入【ESUN50】（至 2026/12/31）</li>
+          <li>優市綁定國泰世華 CUBE 信用卡消費滿 599 元現折 100 元，優惠序號：CUBEBUY（至 2026/12/31）</li>
+          <li>玉山銀行結帳限定折 $50，輸入【ESUN50】（至 2026/12/31）</li>
+          <li>訂閱 Uber One 年費優惠方案輸入【ONE99】（至 2026/12/31）</li>
         </ul>
       </article>
     `;
@@ -55,6 +61,14 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
           title: '既有未過期優惠券',
           category: 'wallet',
           expiresAt: '2026-11-25',
+          updatedAt: '2026-11-10T00:00:00.000Z',
+        },
+        {
+          code: 'RECLASSIFY_BANK_WALLET',
+          platform: 'ubereats',
+          title: '【外送】玉山卡友輸入折扣碼抽滿額折抵優惠',
+          category: 'checkout_only',
+          expiresAt: '2026-11-28',
           updatedAt: '2026-11-10T00:00:00.000Z',
         },
         {
@@ -93,10 +107,18 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
     assert.equal(byKey.has('foodpanda:十月舊熊貓'), false);
     assert.equal(byKey.has('ubereats:PRUNE_ME'), false);
 
-    // Active existing coupon is preserved
+    // Active existing coupon is preserved, and previously over-blocked bank coupon is reclassified to wallet
     assert.equal(byKey.get('foodpanda:KEEP_ACTIVE')?.category, 'wallet');
+    assert.equal(
+      byKey.get('ubereats:RECLASSIFY_BANK_WALLET')?.category,
+      'wallet',
+    );
+    assert.equal(
+      byKey.get('ubereats:RECLASSIFY_BANK_WALLET')?.updatedAt,
+      nowIso,
+    );
 
-    // Extracted foodpanda wallet coupons
+    // Extracted foodpanda wallet coupons (including credit-card promo codes bindable to wallet)
     assert.equal(byKey.get('foodpanda:十一月省很大')?.category, 'wallet');
     assert.equal(
       byKey.get('foodpanda:十一月省很大')?.expiresAt,
@@ -107,17 +129,20 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
       byKey.get('foodpanda:PANDAMART85')?.expiresAt,
       '2026-12-15',
     );
+    assert.equal(byKey.get('foodpanda:CTBC2026')?.category, 'wallet');
 
-    // Extracted foodpanda credit-card / checkout_only coupons
-    assert.equal(byKey.get('foodpanda:CTBC2026')?.category, 'checkout_only');
+    // Extracted foodpanda explicit checkout-only & subscription coupons
     assert.equal(byKey.get('foodpanda:CUBE88')?.category, 'checkout_only');
+    assert.equal(byKey.get('foodpanda:JOIN1')?.category, 'checkout_only');
 
     // Extracted Uber Eats wallet & checkout_only coupons
     assert.equal(byKey.get('ubereats:優步十一月')?.category, 'wallet');
     assert.equal(byKey.get('ubereats:優步十一月')?.expiresAt, '2026-11-28');
     assert.equal(byKey.get('ubereats:UEMART120')?.category, 'wallet');
     assert.equal(byKey.get('ubereats:UEMART120')?.expiresAt, '2026-11-30');
+    assert.equal(byKey.get('ubereats:CUBEBUY')?.category, 'wallet');
     assert.equal(byKey.get('ubereats:ESUN50')?.category, 'checkout_only');
+    assert.equal(byKey.get('ubereats:ONE99')?.category, 'checkout_only');
 
     // Idempotency check: running again with no changes preserves updatedAt without churn
     const secondFeed = buildCouponFeed(

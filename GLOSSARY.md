@@ -17,7 +17,7 @@ A Coupon that can be bound ahead of time into a user's account wallet on a Platf
 _Avoid_: Pre-claim code, account voucher, general promo
 
 **Checkout Coupon** (`結帳限定碼`):
-A Coupon (such as bank credit-card partner codes or restaurant-specific codes) that cannot be bound in the account wallet ahead of time and is only accepted at order checkout.
+A Coupon (such as subscription plan codes or explicit checkout-only promo codes) that cannot be bound in the account wallet ahead of time and is only accepted at order checkout.
 _Avoid_: Cart code, payment code, manual promo
 
 **Coupon Feed** (`遠端優惠碼清單`):

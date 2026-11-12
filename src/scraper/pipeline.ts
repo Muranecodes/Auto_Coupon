@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type {
   CouponCategory,
   CouponEntry,
@@ -17,8 +18,14 @@ export interface ScraperSourceInput {
   html: string;
 }
 
-const CHECKOUT_ONLY_REGEX =
-  /信用卡|刷卡|簽帳卡|金融卡|銀行|中國信託|中信|國泰世華|國泰|玉山|台新|富邦|永豐|聯邦|星展|滙豐|匯豐|兆豐|第一銀行|華南|合作金庫|彰銀|LINE\s*Pay\s*卡|CUBE\s*卡|結帳限定|結帳輸入|限定結帳|訂閱\s*pandapro/i;
+const categoryRules = JSON.parse(
+  readFileSync(new URL('./category-rules.json', import.meta.url), 'utf8'),
+) as { checkoutOnlyPatterns: string[] };
+
+const CHECKOUT_ONLY_REGEX = new RegExp(
+  categoryRules.checkoutOnlyPatterns.join('|'),
+  'i',
+);
 
 function stripHtmlTags(html: string): string {
   return html
@@ -159,7 +166,12 @@ export function buildCouponFeed(
       const key = `${item.platform}:${item.code}`;
       existingByKey.set(key, item);
       if (!isCouponExpired(item.expiresAt, todayIsoDate)) {
-        mergedByKey.set(key, { ...item });
+        const category = classifyCouponCategory(item.title ?? '');
+        mergedByKey.set(key, {
+          ...item,
+          category,
+          updatedAt: item.category === category ? item.updatedAt : nowIso,
+        });
       }
     }
   }

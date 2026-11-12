@@ -1046,7 +1046,7 @@ export function mountAutoCoupon(
       document,
       'div',
       undefined,
-      '結帳/信用卡限定碼（點擊一鍵複製）：',
+      '結帳限定碼（點擊一鍵複製）：',
     ),
   );
   const checkoutListEl = createEl(document, 'div', {
