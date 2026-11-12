@@ -69,11 +69,30 @@ export function dedupeCouponCodes(codes: string[]): string[] {
 export function loadRedemptionRecords(
   platform: PlatformId,
 ): Record<string, RedemptionRecord> {
-  const raw = readRaw(`records:${platform}`);
-  if (!raw) return {};
+  const v2Raw = readRaw(`records:v2:${platform}`);
+  if (v2Raw) {
+    try {
+      const parsed = JSON.parse(v2Raw) as Record<string, RedemptionRecord>;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Migrate v1 records while dropping false-negative invalid_or_expired entries from v1.0.0
+  const v1Raw = readRaw(`records:${platform}`);
+  if (!v1Raw) return {};
   try {
-    const parsed = JSON.parse(raw) as Record<string, RedemptionRecord>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed = JSON.parse(v1Raw) as Record<string, RedemptionRecord>;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const migrated: Record<string, RedemptionRecord> = {};
+    for (const [k, rec] of Object.entries(parsed)) {
+      if (rec && rec.outcome !== 'invalid_or_expired') {
+        migrated[k] = rec;
+      }
+    }
+    writeRaw(`records:v2:${platform}`, JSON.stringify(migrated));
+    return migrated;
   } catch {
     return {};
   }
@@ -95,7 +114,7 @@ export function saveRedemptionRecord(
     attemptedAt: new Date().toISOString(),
   };
   records[normalized] = record;
-  writeRaw(`records:${platform}`, JSON.stringify(records));
+  writeRaw(`records:v2:${platform}`, JSON.stringify(records));
   return record;
 }
 

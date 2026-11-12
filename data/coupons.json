@@ -1,86 +1,446 @@
 {
-  "updatedAt": "2026-11-12T13:50:00.000Z",
+  "updatedAt": "2026-11-12T06:30:54.000Z",
   "coupons": [
     {
       "code": "11111111111",
       "platform": "foodpanda",
-      "title": "pandapro 半年會員方案特價 $111 結帳優惠碼",
+      "title": "【pandapro】訂閱 pandapro 半年制限時價 111 元",
       "category": "checkout_only",
       "expiresAt": null,
-      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "JOIN1",
+      "platform": "foodpanda",
+      "title": "【pandapro】訂閱 pandapro 月費制享一個月免費",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "JOIN12",
+      "platform": "foodpanda",
+      "title": "【pandapro】訂閱 pandapro 年費制享 3 折優惠",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "JOIN6",
+      "platform": "foodpanda",
+      "title": "【pandapro】訂閱 pandapro 半年制享 3 折優惠",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "UPGRADE",
+      "platform": "foodpanda",
+      "title": "【pandapro】訂閱 pandapro 半年制享 7 折優惠",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "calling",
+      "platform": "foodpanda",
+      "title": "【pandapro】訂閱 pandapro 半年制享 5 折優惠",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "psctbc611",
+      "platform": "foodpanda",
+      "title": "【外送-信用卡優惠】「中信LinePay卡」：舊會員消費滿 260 元現折 20 元",
+      "category": "checkout_only",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "psctbce611",
+      "platform": "foodpanda",
+      "title": "【外送-信用卡優惠】「中信LinePay卡」：舊會員於早餐時段(5:30-11:00)消費滿 200 元現折 15 元",
+      "category": "checkout_only",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "1111",
+      "platform": "foodpanda",
+      "title": "【商城-指定店家】指定店家 消費滿額享優惠；於 11/1-11/11 完成乙筆指定訂單後，享滿 999 元現折 111 元優惠券",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一爽補貨",
+      "platform": "foodpanda",
+      "title": "【商城-指定店家】指定店家 早上 11 點搶滿 399 元現折 111 元優惠，每人可用 1 次、搶滿 999 元現折 111 元優惠，每人可用 1 次",
+      "category": "wallet",
+      "expiresAt": "2026-11-11",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一爽訂餐",
+      "platform": "foodpanda",
+      "title": "【外送-指定店家】精選餐廳 「pandapro」 消費滿 299 元享 2 次 85  折優惠，最高折 45 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
       "code": "天天取天天爽",
       "platform": "foodpanda",
-      "title": "外帶自取指定店家滿額折抵優惠（最高折 $110）",
+      "title": "【自取】指定餐廳 消費滿 260 / 360 元現折 80 / 110 元",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
-      "code": "天天省天天爽",
+      "code": "爽爽吃",
       "platform": "foodpanda",
-      "title": "美食外送指定餐廳滿額折扣優惠",
+      "title": "【外送-指定店家】精選餐廳 消費滿 200 / 260 / 360 元現折 80 / 110 / 150 元",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "自取感謝祭",
+      "platform": "foodpanda",
+      "title": "【自取】精選餐廳 消費滿 100 元享 5 折，最高折抵 60 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "請你吃必勝客",
+      "platform": "foodpanda",
+      "title": "【自取】必勝客「pandapro」會員享個人比薩套餐指定專區品項 0 元，1 張優惠碼限折抵單一品項，每人可用 1 次",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
       "code": "週二星享日",
       "platform": "foodpanda",
-      "title": "週二星巴克指定專區滿額現折 $70",
+      "title": "【外送-指定店家】星巴克 每週二於【限時優惠專區】消費滿 279 元現折 70 元",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-12-31",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
-      "code": "週年慶外帶",
+      "code": "週日買全聯",
+      "platform": "foodpanda",
+      "title": "【商城-指定店家】全聯 每週日消費滿 899 元享 2 次 10% 胖達幣回饋，每次最高回饋 100 胖達幣",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "CUBE買優市",
       "platform": "ubereats",
-      "title": "外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）",
+      "title": "【商城-指定店家】優市 綁定國泰世華 CUBE 信用卡消費滿 599 元現折 100 元，每人可用 1 次",
+      "category": "checkout_only",
+      "expiresAt": "2026-12-31",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "玉山限定優惠",
+      "platform": "ubereats",
+      "title": "【外送】玉山卡友輸入折扣碼抽滿額折抵優惠",
       "category": "checkout_only",
       "expiresAt": null,
-      "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "玉山限定好禮",
+      "platform": "ubereats",
+      "title": "【外送】玉山卡友輸入折扣碼抽滿額折抵優惠",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
       "code": "581享受",
       "platform": "ubereats",
-      "title": "精選店家滿 $399 享 85 折（最高折 $70~$90）",
+      "title": "【外送-指定店家】指定店家「Uber One會員」消費滿 399 元享 1 次 85 折優惠，最高折抵 70 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-17",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "FCBUE11",
+      "platform": "ubereats",
+      "title": "【外送】輸入折扣碼抽滿額折抵優惠 (苗栗縣、彰化縣、南投縣、嘉義縣市、雲林縣、台南市、屏東縣、宜蘭縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "中華電信十一月生快",
+      "platform": "ubereats",
+      "title": "【外送】輸入折扣碼抽最高 3 折或滿額折抵優惠",
       "category": "wallet",
       "expiresAt": null,
-      "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "傳說補給到",
+      "platform": "ubereats",
+      "title": "【外送】輸入折扣碼抽滿額折抵優惠",
+      "category": "wallet",
+      "expiresAt": "2026-12-01",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "初冬暖胃",
+      "platform": "ubereats",
+      "title": "【外送】輸入折扣碼抽滿額折抵優惠 (限使用 LINE Pay 付款)",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一吃六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (南投縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一吃吃",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 100 元享 2 次 4 折優惠，最高折抵 100 元 (分眾)",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一喜六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (雲林縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一好六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (彰化縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一快快點",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 100 元享 2 次 4 折優惠，最高折抵 100 元 (分眾)",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一狂六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (屏東縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一省六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (宜蘭縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一要六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 5 折優惠，最高折抵 80 元 (台南市)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一飽六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (嘉義縣、嘉義市)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十一點六",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (苗栗縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十週年來優市",
+      "platform": "ubereats",
+      "title": "【商城-指定店家】優市「Uber One會員」消費滿 999 元現折 110 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-20",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "十週年買優市",
+      "platform": "ubereats",
+      "title": "【商城-指定店家】優市「Uber One會員」消費滿 899 元現折 120 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-19",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "台新瘋雙11",
+      "platform": "ubereats",
+      "title": "【外送】輸入折扣碼抽滿額折抵優惠 (苗栗縣、彰化縣、南投縣、嘉義縣市、雲林縣、台南市、屏東縣、宜蘭縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
       "code": "會員週年享",
       "platform": "ubereats",
-      "title": "Uber One 會員美食外送滿 $649 現折 $100（可用 2 次）",
+      "title": "【外送】「Uber One會員」消費滿 649 元現折 100 元，每人可用 2 次",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
       "code": "會員週年慶",
       "platform": "ubereats",
-      "title": "Uber One 會員美食外送滿 $450 享 $0 外送費與服務費（可用 4 次）",
+      "title": "【外送】「Uber One會員」消費滿 450 元享 0 元外送費+服務費，每人可用 4 次",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     },
     {
-      "code": "afftweats1126",
+      "code": "朋友吃美食",
       "platform": "ubereats",
-      "title": "Uber Eats 新戶首 2 單滿 $150 折 $75",
+      "title": "【外送】輸入折扣碼抽滿額折抵優惠 (苗栗縣、彰化縣、南投縣、嘉義縣市、雲林縣、台南市、屏東縣、宜蘭縣)",
       "category": "wallet",
-      "expiresAt": null,
-      "sourceUrl": "https://www.ubereats.com/tw",
-      "updatedAt": "2026-11-12T13:50:00.000Z"
+      "expiresAt": "2026-12-31",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "秋享七五",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 75 折優惠，最高折抵 40 元 (基隆市)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "秋想七五",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 75 折優惠，最高折抵 40 元 (台東縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "秋有七五",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 75 折優惠，最高折抵 40 元 (金門縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "秋狂七五",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 75 折優惠，最高折抵 40 元 (澎湖縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "秋訂七五",
+      "platform": "ubereats",
+      "title": "【外送】消費滿 149 元享 1 次 75 折優惠，最高折抵 40 元 (花蓮縣)",
+      "category": "wallet",
+      "expiresAt": "2026-11-15",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "週三來取",
+      "platform": "ubereats",
+      "title": "【自取】外帶自取消費滿 149 元享 1 次 5 折優惠，最高折抵 80 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-18",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "週三來省",
+      "platform": "ubereats",
+      "title": "【自取】外帶自取消費滿 149 元享 1 次 5 折優惠，最高折抵 80 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-25",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
+    },
+    {
+      "code": "週年慶外帶",
+      "platform": "ubereats",
+      "title": "【自取】「Uber One會員」外帶自取消費滿 179 元享 5 次 7 折優惠，最高折抵 60 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-30",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-12T06:30:54.000Z"
     }
   ]
 }

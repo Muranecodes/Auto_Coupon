@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { installFakeDom } from './helpers/fake-dom.ts';
 import { mountAutoCoupon } from '../src/userscript/app.ts';
+import { recordNetworkFeedbackText } from '../src/userscript/platforms.ts';
 
 describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () => {
   beforeEach(() => {
@@ -526,5 +527,145 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     assert.deepEqual(submitted, ['會員雙享']);
     const headerSearch = document.querySelector<HTMLInputElement>('#header-search')!;
     assert.equal(headerSearch.value, '');
+  });
+
+  it('redeems a valid foodpanda coupon when React controlled input uses _valueTracker and /vouchers page body has 已過期 tab and voucher cards', async () => {
+    installFakeDom('https://www.foodpanda.com.tw/vouchers');
+    document.body.innerHTML = `
+      <main id="foodpanda-vouchers-page">
+        <nav class="voucher-tabs">
+          <button type="button">可使用 (1)</button>
+          <button type="button">已使用 / 已過期</button>
+        </nav>
+        <section class="voucher-box">
+          <input data-testid="voucher-input" placeholder="輸入優惠碼" value="" />
+          <button data-testid="voucher-apply-btn" type="button" disabled="true">套用</button>
+        </section>
+        <section data-testid="voucher-list">
+          <article class="voucher-card">現有優惠券：滿 $200 折 $30（不適用於指定店家，過期無效）</article>
+        </section>
+      </main>
+    `;
+
+    const inputEl = document.querySelector<HTMLInputElement>(
+      '[data-testid="voucher-input"]',
+    )!;
+    const applyBtn = document.querySelector<HTMLButtonElement>(
+      '[data-testid="voucher-apply-btn"]',
+    )!;
+    const voucherList = document.querySelector<HTMLElement>(
+      '[data-testid="voucher-list"]',
+    )!;
+
+    let domValue = '';
+    let trackerValue = '';
+    let reactStateCode = '';
+    Object.defineProperty(Object.getPrototypeOf(inputEl), 'value', {
+      configurable: true,
+      get() {
+        return domValue;
+      },
+      set(v: string) {
+        domValue = String(v ?? '');
+      },
+    });
+    Object.defineProperty(inputEl, 'value', {
+      configurable: true,
+      get() {
+        return domValue;
+      },
+      set(v: string) {
+        domValue = String(v ?? '');
+        trackerValue = domValue;
+      },
+    });
+    (
+      inputEl as unknown as {
+        _valueTracker: { getValue(): string; setValue(v: string): void };
+      }
+    )._valueTracker = {
+      getValue() {
+        return trackerValue;
+      },
+      setValue(v: string) {
+        trackerValue = String(v ?? '');
+      },
+    };
+
+    inputEl.addEventListener('input', () => {
+      if (trackerValue !== domValue) {
+        trackerValue = domValue;
+        reactStateCode = domValue;
+        applyBtn.disabled = reactStateCode.trim().length === 0;
+        if (!applyBtn.disabled) {
+          applyBtn.removeAttribute('disabled');
+        }
+      }
+    });
+
+    applyBtn.addEventListener('click', () => {
+      if (applyBtn.disabled) return;
+      const submitted = reactStateCode.trim();
+      if (submitted === '天天省天天爽') {
+        setTimeout(() => {
+          const newCard = document.createElement('article');
+          newCard.setAttribute('class', 'voucher-card');
+          newCard.textContent =
+            '天天省天天爽 — 美食外送滿額折扣優惠（不適用於部分指定餐廳，逾期過期無效）';
+          voucherList.appendChild(newCard);
+        }, 30);
+      } else if (submitted === '週二星享日') {
+        // Simulate 200 OK JSON API response whose voucher terms contain "不適用於" and "過期無效"
+        recordNetworkFeedbackText(
+          JSON.stringify({
+            status_code: 200,
+            data: {
+              id: 'v-999',
+              code: '週二星享日',
+              title: '週二星巴克滿額現折 $70',
+              description: '本優惠券不適用於特定門市，逾期過期無效',
+              status: 'ACTIVE',
+            },
+          }),
+          200,
+        );
+      }
+    });
+
+    // Seed v1 storage with a false-negative invalid_or_expired record from v1.0.0
+    localStorage.setItem(
+      'auto_coupon:v1:records:foodpanda',
+      JSON.stringify({
+        天天省天天爽: {
+          code: '天天省天天爽',
+          platform: 'foodpanda',
+          outcome: 'invalid_or_expired',
+          message: '此優惠碼無效、已過期或不符合資格',
+          attemptedAt: '2026-11-12T00:00:00.000Z',
+        },
+      }),
+    );
+
+    const controller = mountAutoCoupon({
+      url: 'https://www.foodpanda.com.tw/vouchers',
+      delayMs: () => 10,
+      autoSyncFeed: false,
+    });
+
+    controller.setQueue(['天天省天天爽', '週二星享日']);
+    const shadow = document.querySelector('#auto-coupon-root')!.shadowRoot!;
+    shadow
+      .querySelector<HTMLButtonElement>('[data-role="start-run-btn"]')!
+      .click();
+    await controller.waitForIdle();
+
+    const statusAttr1 = shadow
+      .querySelector('[data-wallet-code="天天省天天爽"]')
+      ?.getAttribute('data-coupon-status');
+    const statusAttr2 = shadow
+      .querySelector('[data-wallet-code="週二星享日"]')
+      ?.getAttribute('data-coupon-status');
+    assert.equal(statusAttr1, 'claimed');
+    assert.equal(statusAttr2, 'claimed');
   });
 });

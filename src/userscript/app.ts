@@ -589,7 +589,10 @@ export function mountAutoCoupon(
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
+      const snapshot = platform.captureSubmissionSnapshot?.(document, code);
+
       setNativeInputValue(input, code);
+      await Promise.resolve();
       if (!submit) {
         ({ submit } = platform.findInputAndSubmit(document));
       }
@@ -598,6 +601,17 @@ export function mountAutoCoupon(
       const waitTime = Math.max(0, delayFn());
       if (waitTime > 0) {
         await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+
+      if (snapshot && platform.hasSubmissionUpdate) {
+        const pollInterval = Math.min(350, Math.max(12, waitTime));
+        for (
+          let attempt = 0;
+          attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
+          attempt++
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
       }
 
       const postBlock = platform.detectChallengeOrAuthBlock(document);
@@ -609,7 +623,7 @@ export function mountAutoCoupon(
         return;
       }
 
-      const result = platform.classifyFeedback(document);
+      const result = platform.classifyFeedback(document, snapshot);
       liveStatusByCode.set(code, result.outcome);
       summaryCounts[result.outcome] += 1;
       saveRedemptionRecord(platform.id, code, result.outcome, result.message);

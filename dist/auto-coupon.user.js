@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.0.0
+// @version      1.1.0
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        https://www.foodpanda.com.tw/*
@@ -11,6 +11,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @connect      raw.githubusercontent.com
 // @connect      cdn.jsdelivr.net
 // @run-at       document-idle
@@ -74,11 +75,30 @@ function writeRaw(key        , value               )       {
 }function loadRedemptionRecords(
   platform            ,
 )                                   {
-  const raw = readRaw(`records:${platform}`);
-  if (!raw) return {};
+  const v2Raw = readRaw(`records:v2:${platform}`);
+  if (v2Raw) {
+    try {
+      const parsed = JSON.parse(v2Raw)                                    ;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Migrate v1 records while dropping false-negative invalid_or_expired entries from v1.0.0
+  const v1Raw = readRaw(`records:${platform}`);
+  if (!v1Raw) return {};
   try {
-    const parsed = JSON.parse(raw)                                    ;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed = JSON.parse(v1Raw)                                    ;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const migrated                                   = {};
+    for (const [k, rec] of Object.entries(parsed)) {
+      if (rec && rec.outcome !== 'invalid_or_expired') {
+        migrated[k] = rec;
+      }
+    }
+    writeRaw(`records:v2:${platform}`, JSON.stringify(migrated));
+    return migrated;
   } catch {
     return {};
   }
@@ -98,7 +118,7 @@ function writeRaw(key        , value               )       {
     attemptedAt: new Date().toISOString(),
   };
   records[normalized] = record;
-  writeRaw(`records:${platform}`, JSON.stringify(records));
+  writeRaw(`records:v2:${platform}`, JSON.stringify(records));
   return record;
 }function savePendingRunState(
   state                               ,
@@ -433,15 +453,31 @@ function setNativeInputValue(
     // Ignore focus errors
   }
 
+  const previousValue = input.value;
   const proto = Object.getPrototypeOf(input)                           ;
-  const descriptor =
-    Object.getOwnPropertyDescriptor(input, 'value') ??
-    (proto ? Object.getOwnPropertyDescriptor(proto, 'value') : undefined);
+  const protoDescriptor =
+    (proto ? Object.getOwnPropertyDescriptor(proto, 'value') : undefined) ??
+    (typeof HTMLInputElement !== 'undefined' && HTMLInputElement.prototype
+      ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
+      : undefined);
+  const instanceDescriptor = Object.getOwnPropertyDescriptor(input, 'value');
+  const descriptor = protoDescriptor ?? instanceDescriptor;
+
   if (descriptor && typeof descriptor.set === 'function') {
     descriptor.set.call(input, value);
   } else {
     input.value = value;
   }
+
+  const tracker = (
+    input                
+                                                         
+     
+  )._valueTracker;
+  if (tracker && typeof tracker.setValue === 'function') {
+    tracker.setValue(previousValue === value ? '' : previousValue);
+  }
+
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -450,6 +486,14 @@ function triggerSubmitOrEnter(
   submit                    ,
 )       {
   if (submit) {
+    const btn = submit                     ;
+    if (btn.disabled || submit.hasAttribute('disabled')) {
+      btn.disabled = false;
+      submit.removeAttribute('disabled');
+    }
+    if (submit.getAttribute('aria-disabled') === 'true') {
+      submit.setAttribute('aria-disabled', 'false');
+    }
     submit.click();
     return;
   }
@@ -552,23 +596,30 @@ function detectCommonChallenge(doc          )                {
   return null;
 }
 
+const ALREADY_CLAIMED_REGEX =
+  /已經領取|已領取|已套用過|已存在|已被領取|重複領取|已在您的帳戶|已在優惠券匣|already[_\s-]*(claimed|applied|redeemed|added|used|in[_\s-]*wallet|exists)|duplicate/i;
+
+const EXPLICIT_CLAIMED_REGEX =
+  /成功|已存入|已新增|已套用|已歸戶|已領取優惠|恭喜獲得|領取完成|added|claimed|applied\s+successfully|promo\s+applied|voucher\s+added|saved\s+to\s+wallet/i;
+
+const EXPLICIT_FAILURE_NEGATION_REGEX =
+  /未能成功|無法成功|未成功|無法(?:使用|套用|領取|新增|兌換)|(?:領取|套用|新增|兌換)失敗|not\s+added|not\s+applied|cannot\s+be\s+applied|failed/i;
+
+const EXPLICIT_INVALID_ERROR_REGEX =
+  /(?:此|該|輸入的)?(?:優惠碼|優惠券|序號|折扣碼|代碼)(?:無效|已過期|已失效|已兌換完畢|已達上限|不存在|輸入錯誤|不正確)|無效或已過期|無效的優惠|無法(?:使用|套用|領取|新增|兌換)|(?:領取|套用|新增|兌換)失敗|不符合(?:使用|領取)?資格|已兌換完畢|數量已達上限|invalid|expired|not\s+found|not\s+eligible|cannot\s+be\s+applied|does\s+not\s+exist/i;
+
 function classifyFeedbackText(text        )                           {
   const normalized = text.trim();
-  if (
-    /已經領取|已領取|已套用過|已存在|already\s*(claimed|applied|redeemed|added)|已被領取/i.test(
-      normalized,
-    )
-  ) {
+  if (ALREADY_CLAIMED_REGEX.test(normalized)) {
     return {
       outcome: 'already_claimed',
       message: normalized || '已領取過此優惠碼',
     };
   }
   if (
-    /成功|已存入|已新增|已套用|已歸戶|added|claimed|applied\s+successfully|promo\s+applied/i.test(
-      normalized,
-    ) &&
-    !/無法|失敗|無效|過期|錯誤|不適用/.test(normalized)
+    EXPLICIT_CLAIMED_REGEX.test(normalized) &&
+    !EXPLICIT_FAILURE_NEGATION_REGEX.test(normalized) &&
+    !EXPLICIT_INVALID_ERROR_REGEX.test(normalized)
   ) {
     return {
       outcome: 'claimed',
@@ -665,26 +716,174 @@ function navigateWithoutAppSwitch(
   fallbackNavigate(targetUrl);
 }
 
-let lastInterceptedResponseText                = null;
-let snifferInstalled = false;
-function recordNetworkFeedbackText(bodyText        )       {
+                                      
+                   
+                  
+ 
+
+let lastInterceptedResponse                                    = null;
+const snifferInstalledTargets = new WeakSet        ();
+function recordNetworkFeedbackText(
+  bodyText        ,
+  status         ,
+)       {
   if (bodyText && bodyText.trim()) {
-    lastInterceptedResponseText = bodyText.trim();
+    lastInterceptedResponse = {
+      bodyText: bodyText.trim(),
+      status,
+    };
   }
 }
 function consumeNetworkFeedbackText()                {
-  const val = lastInterceptedResponseText;
-  lastInterceptedResponseText = null;
+  const val = lastInterceptedResponse?.bodyText ?? null;
+  lastInterceptedResponse = null;
   return val;
 }
-function installNetworkFeedbackSniffer()       {
-  if (snifferInstalled || typeof window === 'undefined') return;
-  snifferInstalled = true;
-  const win = window                
+function hasPendingNetworkFeedback()          {
+  return lastInterceptedResponse !== null;
+}
+
+function consumeNetworkFeedbackEntry()                                    {
+  const val = lastInterceptedResponse;
+  lastInterceptedResponse = null;
+  return val;
+}
+
+function extractJsonStringField(obj                         )         {
+  const candidateKeys = [
+    'message',
+    'error_message',
+    'errorMessage',
+    'detail',
+    'title',
+    'name',
+    'error_code',
+    'errorCode',
+    'code',
+    'status',
+  ];
+  for (const key of candidateKeys) {
+    const val = obj[key];
+    if (typeof val === 'string' && val.trim()) {
+      return val.trim();
+    }
+  }
+  if (obj.error && typeof obj.error === 'object') {
+    const nested = extractJsonStringField(obj.error                           );
+    if (nested) return nested;
+  }
+  if (Array.isArray(obj.errors) && obj.errors.length > 0) {
+    const first = obj.errors[0];
+    if (typeof first === 'string' && first.trim()) return first.trim();
+    if (first && typeof first === 'object') {
+      const nested = extractJsonStringField(first                           );
+      if (nested) return nested;
+    }
+  }
+  if (obj.data && typeof obj.data === 'object') {
+    const nested = extractJsonStringField(obj.data                           );
+    if (nested) return nested;
+  }
+  return '';
+}
+
+function classifyNetworkFeedback(
+  entry                            ,
+)                           {
+  const raw = entry.bodyText.trim();
+  if (raw.startsWith('{') || raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw)           ;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const obj = parsed                           ;
+        const statusCode =
+          typeof obj.status_code === 'number'
+            ? obj.status_code
+            : typeof obj.statusCode === 'number'
+              ? obj.statusCode
+              : entry.status;
+        const hasErrorField = Boolean(
+          obj.error ||
+            (Array.isArray(obj.errors) && obj.errors.length > 0) ||
+            obj.error_code ||
+            obj.errorCode ||
+            obj.error_message ||
+            obj.errorMessage ||
+            obj.success === false ||
+            obj.ok === false ||
+            (typeof statusCode === 'number' && statusCode >= 400),
+        );
+        const extractedMsg = extractJsonStringField(obj);
+
+        if (hasErrorField) {
+          if (
+            ALREADY_CLAIMED_REGEX.test(extractedMsg) ||
+            ALREADY_CLAIMED_REGEX.test(raw)
+          ) {
+            return {
+              outcome: 'already_claimed',
+              message: extractedMsg || '已領取過此優惠碼',
+            };
+          }
+          return {
+            outcome: 'invalid_or_expired',
+            message: extractedMsg || '此優惠碼無效、已過期或不符合資格',
+          };
+        }
+
+        const hasSuccessPayload = Boolean(
+          (typeof statusCode === 'number' &&
+            statusCode >= 200 &&
+            statusCode < 300) ||
+            obj.success === true ||
+            obj.ok === true ||
+            obj.data ||
+            obj.voucher ||
+            obj.promotion ||
+            obj.id ||
+            obj.code,
+        );
+        if (hasSuccessPayload) {
+          if (ALREADY_CLAIMED_REGEX.test(extractedMsg)) {
+            return {
+              outcome: 'already_claimed',
+              message: extractedMsg || '已領取過此優惠碼',
+            };
+          }
+          if (
+            EXPLICIT_INVALID_ERROR_REGEX.test(extractedMsg) ||
+            EXPLICIT_FAILURE_NEGATION_REGEX.test(extractedMsg)
+          ) {
+            return {
+              outcome: 'invalid_or_expired',
+              message: extractedMsg || '此優惠碼無效、已過期或不符合資格',
+            };
+          }
+          return {
+            outcome: 'claimed',
+            message: extractedMsg || '成功領取優惠碼',
+          };
+        }
+      }
+    } catch {
+      // Fall back to plain-text classification
+    }
+  }
+  return classifyFeedbackText(raw);
+}
+
+function hookWindowNetworkApis(targetWin         )       {
+  if (!targetWin || typeof targetWin !== 'object') return;
+  if (snifferInstalledTargets.has(targetWin)) return;
+  snifferInstalledTargets.add(targetWin);
+
+  const win = targetWin     
                          
+                                           
    ;
+
   if (typeof win.fetch === 'function') {
-    const origFetch = win.fetch.bind(window);
+    const origFetch = win.fetch.bind(targetWin);
     win.fetch = async (...args                          ) => {
       const res = await origFetch(...args);
       try {
@@ -693,17 +892,76 @@ function installNetworkFeedbackSniffer()       {
             ? args[0]
             : (args[0]                    )?.url ?? '';
         if (
-          /voucher|promo|coupon/i.test(reqUrl) &&
+          /voucher|promo|coupon|redeem/i.test(reqUrl) &&
           typeof res.clone === 'function'
         ) {
           const text = await res.clone().text();
-          recordNetworkFeedbackText(text);
+          recordNetworkFeedbackText(text, res.status);
         }
       } catch {
         // Ignore clone/read errors
       }
       return res;
     };
+  }
+
+  if (
+    typeof win.XMLHttpRequest === 'function' &&
+    win.XMLHttpRequest.prototype
+  ) {
+    const xhrProto = win.XMLHttpRequest.prototype                      
+                                   
+     ;
+    if (!xhrProto.__autoCouponHooked) {
+      xhrProto.__autoCouponHooked = true;
+      const origOpen = xhrProto.open;
+      const origSend = xhrProto.send;
+      xhrProto.open = function (
+                                                    
+        method        ,
+        url              ,
+        ...rest           
+      ) {
+        this.__acUrl = String(url ?? '');
+        return (origOpen                             ).apply(this, [
+          method,
+          url,
+          ...rest,
+        ]);
+      };
+      xhrProto.send = function (
+                                                    
+        body                                           ,
+      ) {
+        if (
+          typeof this.addEventListener === 'function' &&
+          /voucher|promo|coupon|redeem/i.test(this.__acUrl ?? '')
+        ) {
+          this.addEventListener('load', () => {
+            try {
+              if (typeof this.responseText === 'string' && this.responseText) {
+                recordNetworkFeedbackText(this.responseText, this.status);
+              }
+            } catch {
+              // Ignore responseText read errors
+            }
+          });
+        }
+        return origSend.call(this, body);
+      };
+    }
+  }
+}
+function installNetworkFeedbackSniffer()       {
+  if (typeof window !== 'undefined') {
+    hookWindowNetworkApis(window);
+  }
+  try {
+    if (typeof unsafeWindow !== 'undefined' && unsafeWindow) {
+      hookWindowNetworkApis(unsafeWindow);
+    }
+  } catch {
+    // Ignore unsafeWindow access errors
   }
 }
 
@@ -902,6 +1160,99 @@ function findSubmitNearInput(
   return null;
 }
 
+const VOUCHER_CARD_SELECTOR = [
+  '[data-testid*="voucher-card"]',
+  '[data-testid*="voucher-item"]',
+  '.voucher-card',
+  '[class*="voucher-card"]',
+  '[class*="voucher-item"]',
+  '[data-testid="voucher-list"] > *',
+].join(', ');
+
+function isInsideAutoCouponHost(el             )          {
+  let curr                     = el;
+  while (curr) {
+    if (curr.id === 'auto-coupon-root') return true;
+    curr = curr.parentElement;
+  }
+  return false;
+}
+
+function countWalletVoucherCards(doc          )         {
+  const cards = doc.querySelectorAll             (VOUCHER_CARD_SELECTOR);
+  let count = 0;
+  for (const card of cards) {
+    if (!isInsideAutoCouponHost(card) && isElementDisplayed(card)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function collectFeedbackSelectorTexts(
+  doc          ,
+  selectors          ,
+)           {
+  const texts           = [];
+  for (const sel of selectors) {
+    const els = doc.querySelectorAll             (sel);
+    for (const el of els) {
+      if (isInsideAutoCouponHost(el) || !isElementDisplayed(el)) continue;
+      const t = (el.textContent ?? '').trim();
+      if (t) texts.push(t);
+    }
+  }
+  return texts;
+}
+
+function isCodeInWalletDom(
+  doc          ,
+  code        ,
+  feedbackSelectors          ,
+)          {
+  const normalizedCode = code.trim();
+  if (!normalizedCode) return false;
+
+  const feedbackElements = new Set             ();
+  for (const sel of feedbackSelectors) {
+    for (const el of doc.querySelectorAll             (sel)) {
+      feedbackElements.add(el);
+    }
+  }
+
+  const allElements = doc.body ? doc.body.querySelectorAll             ('*') : [];
+  for (const el of allElements) {
+    if (isInsideAutoCouponHost(el) || !isElementDisplayed(el)) continue;
+    const tag = el.tagName.toUpperCase();
+    if (
+      tag === 'SCRIPT' ||
+      tag === 'STYLE' ||
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'NAV'
+    ) {
+      continue;
+    }
+    if (feedbackElements.has(el)) continue;
+    if (el.children && el.children.length > 0) {
+      const isCard =
+        el.className?.includes('voucher-card') ||
+        el.getAttribute('data-testid')?.includes('voucher-card');
+      if (!isCard) continue;
+    }
+    const text = (el.textContent ?? '').trim();
+    if (!text || !text.includes(normalizedCode)) continue;
+    if (
+      EXPLICIT_INVALID_ERROR_REGEX.test(text) ||
+      EXPLICIT_FAILURE_NEGATION_REGEX.test(text)
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 function createPlatformAdapter(config                       )                  {
   return {
     id: config.id,
@@ -960,18 +1311,143 @@ function createPlatformAdapter(config                       )                  {
       return false;
     },
 
-    classifyFeedback(doc          )                           {
-      const networkText = consumeNetworkFeedbackText();
-      if (networkText) {
-        return classifyFeedbackText(networkText);
+    captureSubmissionSnapshot(doc          , code        )                     {
+      consumeNetworkFeedbackEntry();
+      return {
+        code: code.trim(),
+        beforeFeedbackTexts: new Set(
+          collectFeedbackSelectorTexts(doc, config.feedbackSelectors),
+        ),
+        beforeCardCount: countWalletVoucherCards(doc),
+        codeExistedBefore: isCodeInWalletDom(
+          doc,
+          code,
+          config.feedbackSelectors,
+        ),
+      };
+    },
+
+    hasSubmissionUpdate(doc          , snapshot                    )          {
+      if (hasPendingNetworkFeedback()) return true;
+      const currentFeedbackTexts = collectFeedbackSelectorTexts(
+        doc,
+        config.feedbackSelectors,
+      );
+      for (const t of currentFeedbackTexts) {
+        if (!snapshot.beforeFeedbackTexts.has(t)) return true;
       }
-      for (const sel of config.feedbackSelectors) {
-        const el = doc.querySelector(sel);
-        if (el && el.textContent?.trim()) {
-          return classifyFeedbackText(el.textContent);
+      if (countWalletVoucherCards(doc) > snapshot.beforeCardCount) {
+        return true;
+      }
+      if (
+        snapshot.code &&
+        !snapshot.codeExistedBefore &&
+        isCodeInWalletDom(doc, snapshot.code, config.feedbackSelectors)
+      ) {
+        return true;
+      }
+      return false;
+    },
+
+    classifyFeedback(
+      doc          ,
+      snapshot                     ,
+    )                           {
+      const networkEntry = consumeNetworkFeedbackEntry();
+      if (networkEntry) {
+        return classifyNetworkFeedback(networkEntry);
+      }
+
+      const currentFeedbackTexts = collectFeedbackSelectorTexts(
+        doc,
+        config.feedbackSelectors,
+      );
+
+      // 1. Prefer newly appeared / updated feedback element text
+      if (snapshot) {
+        for (const text of currentFeedbackTexts) {
+          if (!snapshot.beforeFeedbackTexts.has(text)) {
+            return classifyFeedbackText(text);
+          }
         }
       }
-      return classifyFeedbackText(doc.body?.textContent ?? '');
+
+      // 2. Check if a new voucher card was added to the wallet list in the DOM
+      if (snapshot) {
+        const currentCardCount = countWalletVoucherCards(doc);
+        if (currentCardCount > snapshot.beforeCardCount) {
+          return {
+            outcome: 'claimed',
+            message: '成功新增優惠券至優惠券匣',
+          };
+        }
+        if (
+          snapshot.code &&
+          !snapshot.codeExistedBefore &&
+          isCodeInWalletDom(doc, snapshot.code, config.feedbackSelectors)
+        ) {
+          return {
+            outcome: 'claimed',
+            message: '成功新增優惠券至優惠券匣',
+          };
+        }
+      }
+
+      // 3. Check any active feedback element matching feedbackSelectors
+      if (currentFeedbackTexts.length > 0) {
+        return classifyFeedbackText(
+          currentFeedbackTexts[currentFeedbackTexts.length - 1] ,
+        );
+      }
+
+      // 4. If the coupon code was already in the wallet DOM before submission
+      if (
+        snapshot?.code &&
+        snapshot.codeExistedBefore &&
+        isCodeInWalletDom(doc, snapshot.code, config.feedbackSelectors)
+      ) {
+        return {
+          outcome: 'already_claimed',
+          message: '此優惠券已存在於您的優惠券匣',
+        };
+      }
+
+      // 5. Scoped fallback scan of leaf elements (excluding navigation tabs like "已使用 / 已過期" and voucher cards)
+      const allEls = doc.body
+        ? doc.body.querySelectorAll             ('*')
+        : [];
+      for (const el of allEls) {
+        if (isInsideAutoCouponHost(el) || !isElementDisplayed(el)) continue;
+        const tag = el.tagName.toUpperCase();
+        if (
+          tag === 'SCRIPT' ||
+          tag === 'STYLE' ||
+          tag === 'NAV' ||
+          tag === 'BUTTON' ||
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA'
+        ) {
+          continue;
+        }
+        if (el.children && el.children.length > 0) continue;
+        const text = (el.textContent ?? '').trim();
+        if (!text) continue;
+        if (ALREADY_CLAIMED_REGEX.test(text)) {
+          return { outcome: 'already_claimed', message: text };
+        }
+        if (
+          EXPLICIT_CLAIMED_REGEX.test(text) &&
+          !EXPLICIT_FAILURE_NEGATION_REGEX.test(text) &&
+          !EXPLICIT_INVALID_ERROR_REGEX.test(text)
+        ) {
+          return { outcome: 'claimed', message: text };
+        }
+      }
+
+      return {
+        outcome: 'invalid_or_expired',
+        message: '此優惠碼無效、已過期或不符合資格',
+      };
     },
   };
 }
@@ -1010,9 +1486,21 @@ const foodpandaAdapter                  = createPlatformAdapter({
     '[data-testid="voucher-feedback"]',
     '[data-testid*="voucher-error"]',
     '[data-testid*="voucher-success"]',
+    '[data-testid*="voucher-message"]',
+    '[data-testid*="toast"]',
+    '[data-testid*="snackbar"]',
+    '[data-testid*="notification"]',
+    '[data-testid*="alert"]',
     '[role="alert"]',
+    '[role="status"]',
+    '[aria-live="assertive"]',
+    '[aria-live="polite"]',
     '.voucher-feedback',
     '.notification-toast',
+    '[class*="toast"]',
+    '[class*="snackbar"]',
+    '[class*="error-message"]',
+    '[class*="helper-text"]',
   ],
   modalTriggerPattern:
     /^(?:新增優惠券|輸入優惠碼|新增優惠碼|使用優惠券|Add a voucher|Add voucher)$/i,
@@ -1605,7 +2093,10 @@ const SHADOW_STYLES = `
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
+      const snapshot = platform.captureSubmissionSnapshot?.(document, code);
+
       setNativeInputValue(input, code);
+      await Promise.resolve();
       if (!submit) {
         ({ submit } = platform.findInputAndSubmit(document));
       }
@@ -1614,6 +2105,17 @@ const SHADOW_STYLES = `
       const waitTime = Math.max(0, delayFn());
       if (waitTime > 0) {
         await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+
+      if (snapshot && platform.hasSubmissionUpdate) {
+        const pollInterval = Math.min(350, Math.max(12, waitTime));
+        for (
+          let attempt = 0;
+          attempt < 3 && !platform.hasSubmissionUpdate(document, snapshot);
+          attempt++
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
       }
 
       const postBlock = platform.detectChallengeOrAuthBlock(document);
@@ -1625,7 +2127,7 @@ const SHADOW_STYLES = `
         return;
       }
 
-      const result = platform.classifyFeedback(document);
+      const result = platform.classifyFeedback(document, snapshot);
       liveStatusByCode.set(code, result.outcome);
       summaryCounts[result.outcome] += 1;
       saveRedemptionRecord(platform.id, code, result.outcome, result.message);
