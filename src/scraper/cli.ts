@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CouponFeed, PlatformId } from '../shared/types.ts';
 import { buildCouponFeed, type ScraperSourceInput } from './pipeline.ts';
 
@@ -19,8 +19,16 @@ export const DEFAULT_SCRAPER_SOURCES: ConfiguredSource[] = [
     url: 'https://www.foodpanda.com.tw/contents/deals',
   },
   {
+    platform: 'foodpanda',
+    url: 'https://kb56.tw/foodpanda-promo-code/',
+  },
+  {
     platform: 'ubereats',
     url: 'https://www.ubereats.com/tw',
+  },
+  {
+    platform: 'ubereats',
+    url: 'https://kb56.tw/uber-eats-promo-code/',
   },
 ];
 
@@ -82,6 +90,9 @@ async function main(): Promise<void> {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
   await main();
 }

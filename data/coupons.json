@@ -1,4 +1,59 @@
 {
-  "updatedAt": "2026-11-12T00:00:00.000Z",
-  "coupons": []
+  "updatedAt": "2026-11-12T13:25:00.000Z",
+  "coupons": [
+    {
+      "code": "11111111111",
+      "platform": "foodpanda",
+      "title": "pandapro 半年會員方案特價 $111 優惠碼",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.foodpanda.com.tw/contents/deals",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    },
+    {
+      "code": "581享受",
+      "platform": "ubereats",
+      "title": "精選店家滿 $399 享 85 折（最高折 $70~$90）",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.ubereats.com/tw",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    },
+    {
+      "code": "afftweats1126",
+      "platform": "ubereats",
+      "title": "Uber Eats 新戶首 2 單滿 $150 折 $75",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.ubereats.com/tw",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    },
+    {
+      "code": "會員週年享",
+      "platform": "ubereats",
+      "title": "Uber One 會員美食外送滿 $649 現折 $100（可用 2 次）",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.ubereats.com/tw",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    },
+    {
+      "code": "會員週年慶",
+      "platform": "ubereats",
+      "title": "Uber One 會員美食外送滿 $450 享 $0 外送費與服務費（可用 4 次）",
+      "category": "wallet",
+      "expiresAt": null,
+      "sourceUrl": "https://www.ubereats.com/tw",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    },
+    {
+      "code": "週年慶外帶",
+      "platform": "ubereats",
+      "title": "外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）",
+      "category": "checkout_only",
+      "expiresAt": null,
+      "sourceUrl": "https://www.ubereats.com/tw",
+      "updatedAt": "2026-11-12T13:25:00.000Z"
+    }
+  ]
 }
