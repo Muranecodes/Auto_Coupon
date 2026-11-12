@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
-// @version      1.3.0
+// @version      1.3.1
 // @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
@@ -1417,6 +1417,7 @@ function createPlatformAdapter(config                       )                  {
     id: config.id,
     displayName: config.displayName,
     walletUrl: config.walletUrl,
+    fullPageNavigation: config.fullPageNavigation ?? false,
 
     isWalletPage(url        , doc          )          {
       if (config.walletPathPattern.test(url)) return true;
@@ -1677,8 +1678,10 @@ const foodpandaAdapter                  = createPlatformAdapter({
 const uberEatsAdapter                  = createPlatformAdapter({
   id: 'ubereats',
   displayName: 'Uber Eats 優食',
-  walletUrl: 'https://www.ubereats.com/tw/promotions',
-  walletPathPattern: /\/(promotions|wallet|checkout)\b/i,
+  // Offers hub (reached via the top-left menu > 優惠; the homepage 優惠 is a different page).
+  walletUrl: 'https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1',
+  fullPageNavigation: true,
+  walletPathPattern: /\/feeds\/offershub\b/i,
   inputSelectors: [
     'input[data-testid="promo-code-input"]',
     'input[data-testid*="promo"]',
@@ -3152,7 +3155,11 @@ function createEl                  (
       });
       runStatusText = '正在跳轉至優惠券頁面...';
       renderState();
-      navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
+      if (platform.fullPageNavigation) {
+        navigateFn(platform.walletUrl);
+      } else {
+        navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
+      }
       return;
     }
 
@@ -3197,7 +3204,7 @@ function createEl                  (
       if (!input) {
         pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText =
-          '已暫停：請先用手指點一下網頁上的「優惠碼輸入框」（讓游標停在框內），再按「繼續執行」';
+          '已暫停：找不到優惠碼輸入框。請確認已登入並停留在優惠頁（Uber Eats：左上角選單 → 優惠），或用手指點一下「優惠碼輸入框」（讓游標停在框內），再按「繼續執行」';
         renderState();
         return;
       }

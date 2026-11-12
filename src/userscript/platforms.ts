@@ -18,6 +18,8 @@ export interface PlatformAdapter {
   id: PlatformId;
   displayName: string;
   walletUrl: string;
+  /** Reload the whole page instead of SPA-style navigation (pushState / in-page links). */
+  fullPageNavigation: boolean;
   isWalletPage(url: string, doc: Document): boolean;
   detectChallengeOrAuthBlock(doc: Document): string | null;
   findInputAndSubmit(doc: Document): {
@@ -37,6 +39,7 @@ interface PlatformAdapterConfig {
   id: PlatformId;
   displayName: string;
   walletUrl: string;
+  fullPageNavigation?: boolean;
   walletPathPattern: RegExp;
   inputSelectors: string[];
   submitSelectors: string[];
@@ -990,6 +993,7 @@ function createPlatformAdapter(config: PlatformAdapterConfig): PlatformAdapter {
     id: config.id,
     displayName: config.displayName,
     walletUrl: config.walletUrl,
+    fullPageNavigation: config.fullPageNavigation ?? false,
 
     isWalletPage(url: string, doc: Document): boolean {
       if (config.walletPathPattern.test(url)) return true;
@@ -1252,8 +1256,10 @@ export const foodpandaAdapter: PlatformAdapter = createPlatformAdapter({
 export const uberEatsAdapter: PlatformAdapter = createPlatformAdapter({
   id: 'ubereats',
   displayName: 'Uber Eats 優食',
-  walletUrl: 'https://www.ubereats.com/tw/promotions',
-  walletPathPattern: /\/(promotions|wallet|checkout)\b/i,
+  // Offers hub (reached via the top-left menu > 優惠; the homepage 優惠 is a different page).
+  walletUrl: 'https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1',
+  fullPageNavigation: true,
+  walletPathPattern: /\/feeds\/offershub\b/i,
   inputSelectors: [
     'input[data-testid="promo-code-input"]',
     'input[data-testid*="promo"]',

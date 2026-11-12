@@ -1484,7 +1484,11 @@ export function mountAutoCoupon(
       });
       runStatusText = '正在跳轉至優惠券頁面...';
       renderState();
-      navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
+      if (platform.fullPageNavigation) {
+        navigateFn(platform.walletUrl);
+      } else {
+        navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
+      }
       return;
     }
 
@@ -1529,7 +1533,7 @@ export function mountAutoCoupon(
       if (!input) {
         pausedRemainingCodes = filteredCodes.slice(i);
         runStatusText =
-          '已暫停：請先用手指點一下網頁上的「優惠碼輸入框」（讓游標停在框內），再按「繼續執行」';
+          '已暫停：找不到優惠碼輸入框。請確認已登入並停留在優惠頁（Uber Eats：左上角選單 → 優惠），或用手指點一下「優惠碼輸入框」（讓游標停在框內），再按「繼續執行」';
         renderState();
         return;
       }

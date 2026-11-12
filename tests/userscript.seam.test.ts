@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { FakeShadowRoot, installFakeDom } from './helpers/fake-dom.ts';
 import { mountAutoCoupon } from '../src/userscript/app.ts';
-import { recordNetworkFeedbackText } from '../src/userscript/platforms.ts';
+import {
+  recordNetworkFeedbackText,
+  uberEatsAdapter,
+} from '../src/userscript/platforms.ts';
 import {
   clearRedemptionRecords,
   deleteRedemptionRecord,
@@ -204,8 +207,11 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       .click();
     await ueHomeController.waitForIdle();
 
-    // Should have navigated to Uber Eats promotions wallet URL instead of failing
-    assert.match(navigatedToUrl, /ubereats\.com\/tw\/(promotions|wallet)/i);
+    // Should have navigated to the Uber Eats offers hub (promos) URL instead of failing
+    assert.equal(
+      navigatedToUrl,
+      'https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1',
+    );
 
     // 3. Simulate page load on the Uber Eats promotions wallet URL; it should auto-resume!
     window.location.href = navigatedToUrl;
@@ -954,7 +960,7 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
   });
 
   it('detects Uber Eats TooManyRequests rate limits via network status 429 and DOM text, pauses the run without poisoning history, and offers cooldown countdown and speed selection', async () => {
-    installFakeDom('https://www.ubereats.com/tw/promotions');
+    installFakeDom('https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1');
     clearRedemptionRecords('ubereats');
 
     // 1. Verify default speed mode
@@ -1009,7 +1015,7 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     });
 
     const controller = mountAutoCoupon({
-      url: 'https://www.ubereats.com/tw/promotions',
+      url: 'https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1',
       delayMs: () => 5,
       autoSyncFeed: false,
     });
@@ -1097,7 +1103,7 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
   });
 
   it('cleanses historic false-negative invalid_or_expired records caused by TooManyRequests on load', () => {
-    installFakeDom('https://www.ubereats.com/tw/promotions');
+    installFakeDom('https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1');
     clearRedemptionRecords('ubereats');
 
     saveRedemptionRecord('ubereats', 'REAL_CLAIMED', 'claimed', '成功領取');
@@ -1133,5 +1139,110 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       undefined,
       'POISONED_CODE_2 should have been cleansed on load',
     );
+  });
+});
+
+describe('Seam 1b: Uber Eats offers hub navigation', () => {
+  const OFFERS_HUB_URL =
+    'https://www.ubereats.com/tw/feeds/offershub?mod=promos&ps=1';
+
+  it('recognises only the offers hub as the Uber Eats wallet page', () => {
+    const env = installFakeDom('https://www.ubereats.com/tw');
+    document.body.innerHTML = '<div id="home">Uber Eats 首頁</div>';
+
+    assert.equal(uberEatsAdapter.walletUrl, OFFERS_HUB_URL);
+    assert.equal(uberEatsAdapter.isWalletPage(OFFERS_HUB_URL, env.document), true);
+    assert.equal(
+      uberEatsAdapter.isWalletPage(
+        'https://www.ubereats.com/tw/feeds/offershub?mod=promos',
+        env.document,
+      ),
+      true,
+    );
+    // The legacy guesses and the homepage must not be treated as the wallet page
+    for (const url of [
+      'https://www.ubereats.com/tw',
+      'https://www.ubereats.com/tw/promotions',
+      'https://www.ubereats.com/tw/checkout',
+      'https://www.ubereats.com/tw/account/wallet',
+    ]) {
+      assert.equal(uberEatsAdapter.isWalletPage(url, env.document), false, url);
+    }
+  });
+
+  it('does a full page load to the offers hub even when the homepage has a same-path link', async () => {
+    installFakeDom('https://www.ubereats.com/tw');
+    clearRedemptionRecords('ubereats');
+    document.body.innerHTML = `
+      <div id="ubereats-home">
+        <a href="/tw/feeds/offershub">優惠</a>
+      </div>
+    `;
+    const navigations: string[] = [];
+    const controller = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+      navigate: (targetUrl) => {
+        navigations.push(targetUrl);
+      },
+    });
+    controller.setQueue(['UBER_ONLY_50']);
+    document
+      .querySelector('#auto-coupon-root')!
+      .shadowRoot!.querySelector<HTMLButtonElement>(
+        '[data-role="start-run-btn"]',
+      )!
+      .click();
+    await controller.waitForIdle();
+
+    assert.deepEqual(navigations, [OFFERS_HUB_URL]);
+  });
+
+  it('pauses with a login hint instead of re-navigating when the offers hub has no promo input', async () => {
+    installFakeDom('https://www.ubereats.com/tw');
+    clearRedemptionRecords('ubereats');
+    document.body.innerHTML = '<div id="home">Uber Eats 首頁</div>';
+    const firstNavigations: string[] = [];
+    const home = mountAutoCoupon({
+      url: 'https://www.ubereats.com/tw',
+      delayMs: () => 5,
+      autoSyncFeed: false,
+      navigate: (u) => {
+        firstNavigations.push(u);
+      },
+    });
+    home.setQueue(['UBER_ONLY_50']);
+    document
+      .querySelector('#auto-coupon-root')!
+      .shadowRoot!.querySelector<HTMLButtonElement>(
+        '[data-role="start-run-btn"]',
+      )!
+      .click();
+    await home.waitForIdle();
+    assert.deepEqual(firstNavigations, [OFFERS_HUB_URL]);
+
+    // Page reloaded onto the offers hub but the promo input is missing (e.g. logged out)
+    window.location.href = OFFERS_HUB_URL;
+    document.body.innerHTML = '<main id="offers-hub-empty">請登入</main>';
+    const secondNavigations: string[] = [];
+    const hub = mountAutoCoupon({
+      url: OFFERS_HUB_URL,
+      delayMs: () => 5,
+      autoSyncFeed: false,
+      navigate: (u) => {
+        secondNavigations.push(u);
+      },
+    });
+    await hub.waitForIdle();
+
+    assert.deepEqual(secondNavigations, []);
+    const status =
+      document
+        .querySelector('#auto-coupon-root')!
+        .shadowRoot!.querySelector('[data-role="run-status"]')?.textContent ??
+      '';
+    assert.match(status, /已暫停/);
+    assert.match(status, /登入/);
   });
 });
