@@ -59,11 +59,9 @@ function writeRaw(key        , value               )       {
   } catch {
     // Ignore storage quota errors
   }
-}
-function normalizeCouponCode(code        )         {
+}function normalizeCouponCode(code        )         {
   return code.trim();
-}
-function dedupeCouponCodes(codes          )           {
+}function dedupeCouponCodes(codes          )           {
   const unique           = [];
   const seen = new Set        ();
   for (const raw of codes) {
@@ -73,8 +71,7 @@ function dedupeCouponCodes(codes          )           {
     unique.push(norm);
   }
   return unique;
-}
-function loadRedemptionRecords(
+}function loadRedemptionRecords(
   platform            ,
 )                                   {
   const raw = readRaw(`records:${platform}`);
@@ -85,8 +82,7 @@ function loadRedemptionRecords(
   } catch {
     return {};
   }
-}
-function saveRedemptionRecord(
+}function saveRedemptionRecord(
   platform            ,
   code        ,
   outcome                   ,
@@ -104,13 +100,11 @@ function saveRedemptionRecord(
   records[normalized] = record;
   writeRaw(`records:${platform}`, JSON.stringify(records));
   return record;
-}
-function savePendingRunState(
+}function savePendingRunState(
   state                               ,
 )       {
   writeRaw('pending_run', state ? JSON.stringify(state) : null);
-}
-function consumePendingRunState(
+}function consumePendingRunState(
   platform            ,
 )                                {
   const raw = readRaw('pending_run');
@@ -125,8 +119,7 @@ function consumePendingRunState(
     writeRaw('pending_run', null);
   }
   return null;
-}
-function loadCachedFeed()                    {
+}function loadCachedFeed()                    {
   const raw = readRaw('cached_feed');
   if (!raw) return null;
   try {
@@ -134,15 +127,13 @@ function loadCachedFeed()                    {
   } catch {
     return null;
   }
-}
-function saveCachedFeed(feed            )       {
+}function saveCachedFeed(feed            )       {
   writeRaw('cached_feed', JSON.stringify(feed));
 }
 
 // --- src/userscript/feed.ts ---
 const DEFAULT_FEED_URL =
-  'https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/data/coupons.json';
-async function fetchCouponFeed(
+  'https://raw.githubusercontent.com/Muranecodes/Auto_Coupon/main/data/coupons.json';async function fetchCouponFeed(
   feedUrl = DEFAULT_FEED_URL,
   customFetcher                                    ,
 )                      {
@@ -203,8 +194,7 @@ function validateFeed(raw         )             {
         Boolean(c && typeof c.code === 'string' && typeof c.platform === 'string'),
     ),
   };
-}
-function isCouponExpired(
+}function isCouponExpired(
   expiresAt                           ,
   todayIsoDate        ,
 )          {
@@ -212,8 +202,7 @@ function isCouponExpired(
   const datePart = expiresAt.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return false;
   return datePart < todayIsoDate;
-}
-function partitionPlatformCoupons(
+}function partitionPlatformCoupons(
   feed            ,
   platform            ,
   todayIsoDate = new Date().toISOString().slice(0, 10),
@@ -239,8 +228,7 @@ function partitionPlatformCoupons(
 
 // --- src/userscript/parser.ts ---
 const NOISE_TOKEN_REGEX =
-  /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;
-const COUPON_CONTEXT_HINT_REGEX =
+  /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;const COUPON_CONTEXT_HINT_REGEX =
   /優惠碼|優惠序號|折扣碼|代碼|輸入|code|【|「|『/i;
 
 function escapeRegExp(str        )         {
@@ -254,11 +242,9 @@ function isValidCandidateToken(raw        )          {
   if (/^\d+$/.test(token)) return false;
   if (/^(https?|www|foodpanda|ubereats)$/i.test(token)) return false;
   return /^[A-Za-z0-9\u4e00-\u9fff_-]+$/.test(token);
-}
-function hasCouponHint(text        )          {
+}function hasCouponHint(text        )          {
   return COUPON_CONTEXT_HINT_REGEX.test(text);
-}
-function stripCouponCodeFromTitle(
+}function stripCouponCodeFromTitle(
   blockText        ,
   code        ,
 )         {
@@ -276,8 +262,7 @@ function stripCouponCodeFromTitle(
     .replace(/^[,，、:：\-—\s]+|[,，、:：\-—\s]+$/g, '')
     .trim();
   return cleaned || `${code} 優惠券`;
-}
-function extractCandidateChips(text        )                  {
+}function extractCandidateChips(text        )                  {
   const results                  = [];
   const seen = new Set        ();
 
@@ -393,19 +378,101 @@ function classifyFeedbackText(text        )                           {
   };
 }
 
+const APP_DEEPLINK_PATTERN =
+  /^(?:foodpanda|ubereats|uber):\/\/|(?:onelink\.me|app\.adjust\.com|branch\.io|apps\.apple\.com|itunes\.apple\.com)/i;
+
+let antiHijackInstalled = false;function isAppDeepLink(url        )          {
+  return APP_DEEPLINK_PATTERN.test(url.trim());
+}function installAntiAppHijack(doc          )       {
+  // Remove iOS Smart App Banner meta tags & app-open banners
+  const banners = doc.querySelectorAll(
+    'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
+  );
+  for (const el of banners) {
+    el.remove();
+  }
+
+  // Neutralize deep-link anchors on the page
+  const anchors = doc.querySelectorAll             ('a[href]');
+  for (const a of anchors) {
+    const href = a.getAttribute('href') ?? '';
+    if (isAppDeepLink(href)) {
+      a.setAttribute('data-blocked-deeplink', href);
+      a.removeAttribute('href');
+    }
+  }
+
+  if (antiHijackInstalled) return;
+  antiHijackInstalled = true;
+
+  doc.addEventListener('click', (ev       ) => {
+    const target = ev.target                      ;
+    if (!target) return;
+    let curr                     = target;
+    while (curr) {
+      const href =
+        curr.getAttribute?.('href') ??
+        curr.getAttribute?.('data-blocked-deeplink') ??
+        '';
+      if (href && isAppDeepLink(href)) {
+        ev.preventDefault();
+        return;
+      }
+      curr = curr.parentElement;
+    }
+  });
+}function navigateWithoutAppSwitch(
+  targetUrl        ,
+  doc          ,
+  fallbackNavigate                       ,
+)       {
+  try {
+    const parsed = new URL(
+      targetUrl,
+      typeof window !== 'undefined' && window.location
+        ? window.location.href
+        : 'https://www.foodpanda.com.tw/',
+    );
+    const relativePath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+    // 1. If an in-page SPA link to this pathname exists, click it so router navigates without iOS Universal Link
+    const inPageLink = doc.querySelector             (
+      `a[href="${parsed.pathname}"]`,
+    );
+    if (inPageLink) {
+      inPageLink.click();
+      return;
+    }
+
+    // 2. If History API is available on the same origin in a real browser, trigger SPA popstate first
+    if (
+      typeof window !== 'undefined' &&
+      window.location &&
+      window.location.origin === parsed.origin &&
+      typeof (window                                    ).history?.pushState ===
+        'function'
+    ) {
+      const hist = (window                                   ).history;
+      hist.pushState({}, '', relativePath);
+      window.dispatchEvent(new Event('popstate', { bubbles: true }));
+    }
+  } catch {
+    // Fallback to standard navigation
+  }
+
+  fallbackNavigate(targetUrl);
+}
+
 let lastInterceptedResponseText                = null;
-let snifferInstalled = false;
-function recordNetworkFeedbackText(bodyText        )       {
+let snifferInstalled = false;function recordNetworkFeedbackText(bodyText        )       {
   if (bodyText && bodyText.trim()) {
     lastInterceptedResponseText = bodyText.trim();
   }
-}
-function consumeNetworkFeedbackText()                {
+}function consumeNetworkFeedbackText()                {
   const val = lastInterceptedResponseText;
   lastInterceptedResponseText = null;
   return val;
-}
-function installNetworkFeedbackSniffer()       {
+}function installNetworkFeedbackSniffer()       {
   if (snifferInstalled || typeof window === 'undefined') return;
   snifferInstalled = true;
   const win = window                
@@ -490,8 +557,7 @@ function createPlatformAdapter(config                       )                  {
       return classifyFeedbackText(doc.body?.textContent ?? '');
     },
   };
-}
-const foodpandaAdapter                  = createPlatformAdapter({
+}const foodpandaAdapter                  = createPlatformAdapter({
   id: 'foodpanda',
   displayName: 'foodpanda 熊貓外送',
   walletUrl: 'https://www.foodpanda.com.tw/vouchers',
@@ -520,8 +586,7 @@ const foodpandaAdapter                  = createPlatformAdapter({
     '.voucher-feedback',
     '.notification-toast',
   ],
-});
-const uberEatsAdapter                  = createPlatformAdapter({
+});const uberEatsAdapter                  = createPlatformAdapter({
   id: 'ubereats',
   displayName: 'Uber Eats 優食',
   walletUrl: 'https://www.ubereats.com/tw/promotions',
@@ -548,8 +613,7 @@ const uberEatsAdapter                  = createPlatformAdapter({
     '[role="alert"]',
     '.promo-feedback',
   ],
-});
-function detectPlatform(url        )                  {
+});function detectPlatform(url        )                  {
   if (/ubereats\.com/i.test(url)) {
     return uberEatsAdapter;
   }
@@ -676,11 +740,11 @@ const SHADOW_STYLES = `
     font-size: 13px;
     box-sizing: border-box;
   }
-`;
-function mountAutoCoupon(
+`;function mountAutoCoupon(
   options                         = {},
 )                       {
   installNetworkFeedbackSniffer();
+  installAntiAppHijack(document);
 
   const currentUrl =
     options.url ??
@@ -1029,7 +1093,7 @@ function mountAutoCoupon(
       });
       runStatusText = '正在跳轉至優惠券頁面...';
       renderState();
-      navigateFn(platform.walletUrl);
+      navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
       return;
     }
 

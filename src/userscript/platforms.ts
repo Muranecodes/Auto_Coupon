@@ -100,6 +100,97 @@ function classifyFeedbackText(text: string): PlatformSubmissionResult {
   };
 }
 
+const APP_DEEPLINK_PATTERN =
+  /^(?:foodpanda|ubereats|uber):\/\/|(?:onelink\.me|app\.adjust\.com|branch\.io|apps\.apple\.com|itunes\.apple\.com)/i;
+
+let antiHijackInstalled = false;
+
+export function isAppDeepLink(url: string): boolean {
+  return APP_DEEPLINK_PATTERN.test(url.trim());
+}
+
+export function installAntiAppHijack(doc: Document): void {
+  // Remove iOS Smart App Banner meta tags & app-open banners
+  const banners = doc.querySelectorAll(
+    'meta[name="apple-itunes-app"], [data-testid*="app-banner"], [class*="smart-banner"], [id*="branch-banner"]',
+  );
+  for (const el of banners) {
+    el.remove();
+  }
+
+  // Neutralize deep-link anchors on the page
+  const anchors = doc.querySelectorAll<HTMLElement>('a[href]');
+  for (const a of anchors) {
+    const href = a.getAttribute('href') ?? '';
+    if (isAppDeepLink(href)) {
+      a.setAttribute('data-blocked-deeplink', href);
+      a.removeAttribute('href');
+    }
+  }
+
+  if (antiHijackInstalled) return;
+  antiHijackInstalled = true;
+
+  doc.addEventListener('click', (ev: Event) => {
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
+    let curr: HTMLElement | null = target;
+    while (curr) {
+      const href =
+        curr.getAttribute?.('href') ??
+        curr.getAttribute?.('data-blocked-deeplink') ??
+        '';
+      if (href && isAppDeepLink(href)) {
+        ev.preventDefault();
+        return;
+      }
+      curr = curr.parentElement;
+    }
+  });
+}
+
+export function navigateWithoutAppSwitch(
+  targetUrl: string,
+  doc: Document,
+  fallbackNavigate: (url: string) => void,
+): void {
+  try {
+    const parsed = new URL(
+      targetUrl,
+      typeof window !== 'undefined' && window.location
+        ? window.location.href
+        : 'https://www.foodpanda.com.tw/',
+    );
+    const relativePath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+    // 1. If an in-page SPA link to this pathname exists, click it so router navigates without iOS Universal Link
+    const inPageLink = doc.querySelector<HTMLElement>(
+      `a[href="${parsed.pathname}"]`,
+    );
+    if (inPageLink) {
+      inPageLink.click();
+      return;
+    }
+
+    // 2. If History API is available on the same origin in a real browser, trigger SPA popstate first
+    if (
+      typeof window !== 'undefined' &&
+      window.location &&
+      window.location.origin === parsed.origin &&
+      typeof (window as unknown as { history?: History }).history?.pushState ===
+        'function'
+    ) {
+      const hist = (window as unknown as { history: History }).history;
+      hist.pushState({}, '', relativePath);
+      window.dispatchEvent(new Event('popstate', { bubbles: true }));
+    }
+  } catch {
+    // Fallback to standard navigation
+  }
+
+  fallbackNavigate(targetUrl);
+}
+
 let lastInterceptedResponseText: string | null = null;
 let snifferInstalled = false;
 

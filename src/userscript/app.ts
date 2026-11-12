@@ -12,7 +12,9 @@ import {
 import { extractCandidateChips } from './parser.ts';
 import {
   detectPlatform,
+  installAntiAppHijack,
   installNetworkFeedbackSniffer,
+  navigateWithoutAppSwitch,
   setNativeInputValue,
   type PlatformAdapter,
 } from './platforms.ts';
@@ -172,6 +174,7 @@ export function mountAutoCoupon(
   options: MountAutoCouponOptions = {},
 ): AutoCouponController {
   installNetworkFeedbackSniffer();
+  installAntiAppHijack(document);
 
   const currentUrl =
     options.url ??
@@ -520,7 +523,7 @@ export function mountAutoCoupon(
       });
       runStatusText = '正在跳轉至優惠券頁面...';
       renderState();
-      navigateFn(platform.walletUrl);
+      navigateWithoutAppSwitch(platform.walletUrl, document, navigateFn);
       return;
     }
 
