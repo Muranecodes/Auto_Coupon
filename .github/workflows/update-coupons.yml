@@ -6,6 +6,10 @@ on:
     - cron: '0 0,12 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: update-coupons
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -34,7 +38,8 @@ jobs:
           git add data/coupons.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(coupons): update Coupon Feed"
-            git push
+            git pull --rebase origin main -X theirs
+            git push origin HEAD:main
           else
             echo "No coupon changes detected."
           fi

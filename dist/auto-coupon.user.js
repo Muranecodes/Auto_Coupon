@@ -314,7 +314,11 @@ function partitionPlatformCoupons(
 
 // --- src/userscript/parser.ts ---
 const NOISE_TOKEN_REGEX =
-  /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;const COUPON_CONTEXT_HINT_REGEX =
+  /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;
+
+const PROSE_SUBSTRING_REGEX =
+  /您|你的|您的|所在|區域|路段|地址|系統|首頁|點擊|選擇|步驟|說明|注意事項/;
+const COUPON_CONTEXT_HINT_REGEX =
   /優惠碼|優惠序號|折扣碼|代碼|輸入|code|【|「|『/i;
 
 function escapeRegExp(str        )         {
@@ -325,12 +329,15 @@ function isValidCandidateToken(raw        )          {
   const token = raw.trim();
   if (token.length < 2 || token.length > 20) return false;
   if (NOISE_TOKEN_REGEX.test(token)) return false;
+  if (PROSE_SUBSTRING_REGEX.test(token)) return false;
   if (/^\d+$/.test(token)) return false;
   if (/^(https?|www|foodpanda|ubereats)$/i.test(token)) return false;
   return /^[A-Za-z0-9\u4e00-\u9fff_-]+$/.test(token);
-}function hasCouponHint(text        )          {
+}
+function hasCouponHint(text        )          {
   return COUPON_CONTEXT_HINT_REGEX.test(text);
-}function stripCouponCodeFromTitle(
+}
+function stripCouponCodeFromTitle(
   blockText        ,
   code        ,
 )         {
@@ -348,7 +355,8 @@ function isValidCandidateToken(raw        )          {
     .replace(/^[,，、:：\-—\s]+|[,，、:：\-—\s]+$/g, '')
     .trim();
   return cleaned || `${code} 優惠券`;
-}function extractCandidateChips(text        )                  {
+}
+function extractCandidateChips(text        )                  {
   const results                  = [];
   const seen = new Set        ();
 
@@ -369,7 +377,7 @@ function isValidCandidateToken(raw        )          {
     if (!line) continue;
 
     const explicitPattern =
-      /【([^】\n]{2,20})】|「([^」\n]{2,20})」|『([^』\n]{2,20})』|(?:優惠碼|優惠序號|折扣碼|代碼|code)\s*[:：為是]?\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,20})|輸入\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,12})(?=\s|$|[，,。！!）)])/gi;
+      /【([^】\n]{2,20})】|「([^」\n]{2,20})」|『([^』\n]{2,20})』|(?:優惠碼|優惠序號|折扣碼|代碼|code)\s*[:：]\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,15})(?=\s|$|[，,。！!（(）)])|輸入\s*[:：]?\s*([A-Za-z0-9_-]{3,20})(?=\s|$|[，,。！!（(）)])/gi;
 
     let matchedExplicitInLine = false;
     let match                        ;
@@ -381,7 +389,7 @@ function isValidCandidateToken(raw        )          {
       }
     }
 
-    if (!matchedExplicitInLine && !/[。！!？?（）()]/.test(line)) {
+    if (!matchedExplicitInLine && !/[。！!？?（）():：]/.test(line)) {
       const rawTokens = line.split(/[,，、;；\s]+/);
       for (const tok of rawTokens) {
         pushCandidate(tok);

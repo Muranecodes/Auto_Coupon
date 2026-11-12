@@ -38,18 +38,18 @@
       "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
-      "code": "581享受",
+      "code": "週年慶外帶",
       "platform": "ubereats",
-      "title": "精選店家滿 $399 享 85 折（最高折 $70~$90）",
-      "category": "wallet",
+      "title": "外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）",
+      "category": "checkout_only",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
       "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
-      "code": "afftweats1126",
+      "code": "581享受",
       "platform": "ubereats",
-      "title": "Uber Eats 新戶首 2 單滿 $150 折 $75",
+      "title": "精選店家滿 $399 享 85 折（最高折 $70~$90）",
       "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
@@ -74,10 +74,10 @@
       "updatedAt": "2026-11-12T13:50:00.000Z"
     },
     {
-      "code": "週年慶外帶",
+      "code": "afftweats1126",
       "platform": "ubereats",
-      "title": "外帶自取單筆滿 $179 享 7 折（需綁定信用卡，最高折 $60）",
-      "category": "checkout_only",
+      "title": "Uber Eats 新戶首 2 單滿 $150 折 $75",
+      "category": "wallet",
       "expiresAt": null,
       "sourceUrl": "https://www.ubereats.com/tw",
       "updatedAt": "2026-11-12T13:50:00.000Z"
