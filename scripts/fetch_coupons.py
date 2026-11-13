@@ -1,28 +1,37 @@
 import argparse
 import json
-import re
 import socket
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = REPO_ROOT / "data" / "coupons.json"
-CATEGORY_RULES_PATH = REPO_ROOT / "src" / "scraper" / "category-rules.json"
+CLI_PATH = REPO_ROOT / "src" / "scraper" / "cli.ts"
 STATE_FILE = REPO_ROOT / ".last_scrape_date"
 LOG_FILE = REPO_ROOT / "logs" / "daily_scrape.log"
 
-_category_rules = json.loads(CATEGORY_RULES_PATH.read_text(encoding="utf-8"))
-CHECKOUT_ONLY_REGEX = re.compile(
-    "|".join(_category_rules["checkoutOnlyPatterns"]),
-    re.IGNORECASE,
-)
+FALLBACK_SOURCES = [
+    {
+        "platform": "foodpanda",
+        "url": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/",
+    },
+    {
+        "platform": "ubereats",
+        "url": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+    },
+]
+
+
+def _subprocess_kwargs() -> dict:
+    kwargs: dict = {"cwd": str(REPO_ROOT), "capture_output": True, "text": True, "encoding": "utf-8"}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    return kwargs
 
 
 def log(msg: str) -> None:
@@ -51,132 +60,57 @@ def wait_for_network(timeout_sec: int = 90) -> bool:
     return False
 
 
-def is_coupon_expired(expires_at: str | None, today_iso: str) -> bool:
-    if not expires_at:
-        return False
-    return expires_at < today_iso
-
-
-def parse_expiration_date(text: str, reference_year: int = 2026) -> str | None:
-    m_full = re.search(r"(20\d{2})\s*[\/\-年.]\s*(\d{1,2})\s*[\/\-月.]\s*(\d{1,2})", text)
-    if m_full:
-        return f"{m_full.group(1)}-{int(m_full.group(2)):02d}-{int(m_full.group(3)):02d}"
-    m_short = re.search(r"(\d{1,2})\s*[\/\-月]\s*(\d{1,2})", text)
-    if m_short:
-        return f"{reference_year}-{int(m_short.group(1)):02d}-{int(m_short.group(2)):02d}"
-    return None
-
-
-def classify_category(content: str) -> str:
-    if CHECKOUT_ONLY_REGEX.search(content):
-        return "checkout_only"
-    return "wallet"
-
-
-def fetch_coupons(url, return_details=False):
+def load_scraper_sources() -> list[dict[str, str]]:
     try:
-        # --- 配置 Chrome Options (推荐使用无头模式) ---
-        chrome_options = Options()
-        # 运行在后台（不弹出浏览器窗口），更高效且适合服务器环境
-        chrome_options.add_argument("--headless=new")
-        # 禁用 GPU 加速，有时能避免一些奇怪的错误
-        chrome_options.add_argument("--disable-gpu")
-        # 确保在沙箱环境下运行
-        chrome_options.add_argument("--no-sandbox")
-        # 设定一个 User-Agent 来进一步伪装成普通浏览器
-        chrome_options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        res = subprocess.run(
+            ["node", str(CLI_PATH), "--print-sources"],
+            **_subprocess_kwargs(),
         )
-
-        service = Service()
-        if sys.platform == "win32":
-            # 隱藏 Windows 下 chromedriver.exe 的黑框視窗
-            service.creation_flags = subprocess.CREATE_NO_WINDOW
-
-        soup = None
-        try:
-            # 启动 Chrome 浏览器
-            driver = webdriver.Chrome(options=chrome_options, service=service)
-
-            log(f"✅ 浏览器已启动，正在访问: {url}")
-
-            # 访问目标 URL
-            driver.get(url)
-
-            # --- 关键步骤：等待页面完全加载 ---
-            # 如果页面有大量 JavaScript 渲染，可能需要等待几秒
-            time.sleep(5)
-            log("⏳ 页面加载完成，等待 5 秒以确保 JS 执行完毕...")
-
-            # 获取当前页面的完整 HTML 源码
-            html_content = driver.page_source
-
-            log("✨ 已获取页面源码。")
-
-            # --- 将源码传递给 BeautifulSoup 进行解析 ---
-            soup = BeautifulSoup(html_content, "html.parser")
-
-            log(f"解析完成！页面标题：{soup.title.text if soup.title else '未找到标题'}")
-
-        except Exception as e:
-            log(f"❌ 发生错误: {e}")
-
-        finally:
-            # 无论成功还是失败，都要关闭浏览器和驱动程序
-            if "driver" in locals():
-                driver.quit()
-                log("🗑️ 浏览器已关闭。")
-
-        if soup is None:
-            return []
-
-        tbody = soup.find("tbody")
-        if tbody is None:
-            return []
-        rows = tbody.find_all("tr")[1:]
-
-        # 初始化結果清單
-        result = []
-        details = []
-        ref_year = datetime.now().year
-
-        for row in rows:
-            tds = row.find_all("td")
-            if len(tds) < 3:
-                continue
-            # 獲取有效期限欄位 (若有)
-            expire_text = tds[0].get_text(strip=True)
-            # 獲取優惠內容
-            content = tds[1].get_text(strip=True).replace("\xa0", " ")
-            # 獲取優惠碼 (處理 <br> 多組優惠碼或括號備註)
-            raw_lines = [
-                line.split("(")[0].strip()
-                for line in tds[2].get_text(separator="\n", strip=True).splitlines()
-            ]
-
-            for code in raw_lines:
-                if not code:
-                    continue
-                # 篩選【】內不含 "首購" 的條件，並排除非優惠碼按鈕文字
-                if (
-                    "首購" not in content
-                    and "前往訂餐" not in code
-                    and "前往兌換" not in code
-                ):
-                    result.append(code)
-                    details.append(
-                        {
-                            "code": code,
-                            "title": content,
-                            "expiresAt": parse_expiration_date(expire_text, ref_year),
-                            "category": classify_category(content),
-                        }
-                    )
-
-        return details if return_details else result
+        if res.returncode == 0 and res.stdout.strip():
+            parsed = json.loads(res.stdout)
+            if isinstance(parsed, list) and parsed:
+                return parsed
     except Exception as e:
-        log(f"抓取失敗: {e}")
-        return []
+        log(f"⚠️ 無法從 cli.ts 讀取來源清單，改用預設清單: {e}")
+    return list(FALLBACK_SOURCES)
+
+
+def fetch_html_with_selenium(url: str) -> str | None:
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+
+    service = Service()
+    if sys.platform == "win32":
+        service.creation_flags = subprocess.CREATE_NO_WINDOW
+
+    driver = None
+    try:
+        driver = webdriver.Chrome(options=chrome_options, service=service)
+        log(f"🌐 正在使用無頭瀏覽器訪問: {url}")
+        driver.get(url)
+        time.sleep(5)
+        html_content = driver.page_source
+        if "<tbody" not in html_content.lower():
+            log(f"⚠️ {url} 未偵測到優惠碼表格（可能遭 Cloudflare 阻擋），略過此來源。")
+            return None
+        log(f"✨ 已擷取頁面 HTML ({len(html_content)} bytes)")
+        return html_content
+    except Exception as e:
+        log(f"⚠️ Selenium 抓取失敗 ({url}): {e}")
+        return None
+    finally:
+        if driver is not None:
+            try:
+                driver.quit()
+            except Exception:
+                pass
 
 
 def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_push: bool = False) -> bool:
@@ -196,10 +130,10 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
 
     if git_push:
         try:
-            run_kwargs = {"cwd": str(REPO_ROOT), "capture_output": True, "text": True}
-            if sys.platform == "win32":
-                run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-            pull_res = subprocess.run(["git", "pull", "--rebase", "origin", "main"], **run_kwargs)
+            pull_res = subprocess.run(
+                ["git", "pull", "--rebase", "origin", "main"],
+                **_subprocess_kwargs(),
+            )
             if pull_res.returncode == 0:
                 log("🔄 預先同步遠端最新代碼庫成功。")
             else:
@@ -207,100 +141,39 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
         except Exception as e:
             log(f"⚠️ 預先 Git pull 例外: {e}")
 
-    sources = [
-        (
-            "foodpanda",
-            "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/#%E5%84%AA%E6%83%A0%E5%88%97%E8%A1%A8",
-        ),
-        (
-            "ubereats",
-            "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-        ),
-    ]
+    sources = load_scraper_sources()
+    fetched_sources: list[dict[str, str]] = []
+    for src in sources:
+        html = fetch_html_with_selenium(src["url"])
+        if html:
+            fetched_sources.append(
+                {
+                    "platform": src["platform"],
+                    "url": src["url"],
+                    "html": html,
+                }
+            )
 
-    existing_by_key: dict[str, dict] = {}
-    existing_updated_at: str | None = None
-    if DATA_PATH.exists():
-        try:
-            existing_feed = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-            existing_updated_at = existing_feed.get("updatedAt")
-            for item in existing_feed.get("coupons", []):
-                existing_by_key[f"{item.get('platform')}:{item.get('code')}"] = item
-        except Exception:
-            pass
+    if not fetched_sources:
+        log("⚠️ 本次未成功取得任何來源表格，仍交由 pipeline.ts 進行過期與淘汰清理並保留現有有效資料。")
 
-    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    merged: dict[str, dict] = {}
-
-    for platform, url in sources:
-        items = fetch_coupons(url, return_details=True)
-        log(f"[{platform}] 共擷取 {len(items)} 組優惠碼: {[i['code'] for i in items]}")
-        for item in items:
-            if is_coupon_expired(item.get("expiresAt"), today_str):
-                continue
-            key = f"{platform}:{item['code']}"
-            prev = existing_by_key.get(key)
-            entry = {
-                "code": item["code"],
-                "platform": platform,
-                "title": item["title"],
-                "category": item["category"],
-                "expiresAt": item["expiresAt"],
-                "sourceUrl": url,
-                "updatedAt": now_iso,
-            }
-            if prev and all(
-                prev.get(k) == entry.get(k)
-                for k in ("code", "platform", "title", "category", "expiresAt", "sourceUrl")
-            ):
-                entry["updatedAt"] = prev.get("updatedAt", now_iso)
-            merged[key] = entry
-
-    if not merged and not existing_by_key:
-        log("⚠️ 未擷取到任何優惠碼且無既有檔案，保留現有 coupons.json。")
+    cli_res = subprocess.run(
+        ["node", str(CLI_PATH), "--sources-stdin"],
+        input=json.dumps(fetched_sources, ensure_ascii=False),
+        **_subprocess_kwargs(),
+    )
+    if cli_res.returncode != 0:
+        log(f"❌ pipeline.ts 執行失敗: {cli_res.stderr.strip()}")
         return False
 
-    # 保留現有檔案中未過期且本次未被 CallingTaiwan 覆蓋的優惠券（例如來自 GitHub Actions 抓取到的官網或 kb56），並依最新規則重算分類
-    for key, prev_item in existing_by_key.items():
-        if key not in merged:
-            if not is_coupon_expired(prev_item.get("expiresAt"), today_str):
-                reclassified = classify_category(prev_item.get("title") or "")
-                updated_item = dict(prev_item)
-                if updated_item.get("category") != reclassified:
-                    updated_item["category"] = reclassified
-                    updated_item["updatedAt"] = now_iso
-                merged[key] = updated_item
+    if cli_res.stdout.strip():
+        log(f"✅ {cli_res.stdout.strip()}")
 
-    sorted_coupons = sorted(
-        merged.values(),
-        key=lambda x: (x["platform"], x["category"], x["code"]),
-    )
-
-    prev_list = [existing_by_key[k] for k in sorted(existing_by_key.keys())] if existing_by_key else []
-    is_unchanged = (
-        existing_updated_at is not None
-        and len(sorted_coupons) == len(existing_by_key)
-        and all(
-            c.get("updatedAt") == existing_by_key.get(f"{c['platform']}:{c['code']}", {}).get("updatedAt")
-            for c in sorted_coupons
-        )
-    )
-
-    feed = {
-        "updatedAt": existing_updated_at if is_unchanged else now_iso,
-        "coupons": sorted_coupons,
-    }
-
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DATA_PATH.write_text(json.dumps(feed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     STATE_FILE.write_text(today_str, encoding="utf-8")
-    log(f"✅ 已更新 {DATA_PATH}（共 {len(sorted_coupons)} 筆優惠碼）")
 
     if git_push:
         try:
-            run_kwargs = {"cwd": str(REPO_ROOT), "capture_output": True, "text": True}
-            if sys.platform == "win32":
-                run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            run_kwargs = _subprocess_kwargs()
             diff_res = subprocess.run(["git", "status", "--porcelain", "data/coupons.json"], **run_kwargs)
             if diff_res.stdout.strip():
                 subprocess.run(["git", "add", "data/coupons.json"], **run_kwargs, check=True)
@@ -324,7 +197,7 @@ def update_coupons_json(once_per_day: bool = False, wait_net: bool = False, git_
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fetch CallingTaiwan coupons and update data/coupons.json")
+    parser = argparse.ArgumentParser(description="Fetch CallingTaiwan coupons with Selenium and update data/coupons.json via cli.ts")
     parser.add_argument("--once-per-day", action="store_true", help="Only run once per calendar day")
     parser.add_argument("--wait-network", action="store_true", help="Wait up to 90s for network before scraping")
     parser.add_argument("--git-push", action="store_true", help="Auto commit and push data/coupons.json if changed")

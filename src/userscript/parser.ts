@@ -7,7 +7,7 @@ const PROSE_SUBSTRING_REGEX =
   /您|你的|您的|所在|區域|路段|地址|系統|首頁|點擊|選擇|步驟|說明|注意事項/;
 
 export const COUPON_CONTEXT_HINT_REGEX =
-  /優惠碼|優惠序號|折扣碼|代碼|輸入|code|【|「|『/i;
+  /優惠碼|優惠序號|折扣碼|優惠代碼|折扣代碼|代碼|輸入|\bcode\b/i;
 
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

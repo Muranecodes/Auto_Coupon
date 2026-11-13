@@ -27,6 +27,32 @@ const CHECKOUT_ONLY_REGEX = new RegExp(
   'i',
 );
 
+const BOILERPLATE_NOISE_REGEX =
+  /第三方\s*cookie|選擇退出.*cookie|cookie\s*(?:政策|聲明|偏好|設定)|隱私權(?:政策|聲明|條款)|選擇不.*(?:「出售」|「分享」|出售或分享).*您的資料|選擇不.*您的資料/i;
+
+function isBoilerplateNoiseText(text: string): boolean {
+  return BOILERPLATE_NOISE_REGEX.test(text);
+}
+
+function isRetiredSourceUrl(sourceUrl?: string): boolean {
+  if (!sourceUrl) return false;
+  try {
+    const parsed = new URL(sourceUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'kb56.tw' || host.endsWith('.kb56.tw')) return true;
+    if (host === 'ubereats.com' || host === 'www.ubereats.com') return true;
+    if (
+      (host === 'foodpanda.com.tw' || host === 'www.foodpanda.com.tw') &&
+      parsed.pathname.startsWith('/contents/deals')
+    ) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function stripHtmlTags(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -165,7 +191,11 @@ export function buildCouponFeed(
     for (const item of existingFeed.coupons) {
       const key = `${item.platform}:${item.code}`;
       existingByKey.set(key, item);
-      if (!isCouponExpired(item.expiresAt, todayIsoDate)) {
+      if (
+        !isCouponExpired(item.expiresAt, todayIsoDate) &&
+        !isRetiredSourceUrl(item.sourceUrl) &&
+        !isBoilerplateNoiseText(item.title ?? '')
+      ) {
         const category = classifyCouponCategory(item.title ?? '');
         mergedByKey.set(key, {
           ...item,
@@ -207,6 +237,7 @@ export function buildCouponFeed(
 
     const blocks = splitHtmlIntoBlocks(source.html);
     for (const block of blocks) {
+      if (isBoilerplateNoiseText(block)) continue;
       if (!hasCouponHint(block)) continue;
       const chips = extractCandidateChips(block);
       if (chips.length === 0) continue;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { CouponFeed } from '../src/shared/types.ts';
+import { DEFAULT_SCRAPER_SOURCES } from '../src/scraper/cli.ts';
 import { buildCouponFeed } from '../src/scraper/pipeline.ts';
 
 describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
@@ -164,5 +165,81 @@ describe('Seam 2: Coupon Feed Scraper Pipeline (buildCouponFeed)', () => {
 
     assert.equal(secondFeed.updatedAt, feed.updatedAt);
     assert.deepEqual(secondFeed.coupons, feed.coupons);
+  });
+
+  it('ignores cookie/privacy boilerplate, evicts retired-source and noise entries with null expiresAt, and restricts DEFAULT_SCRAPER_SOURCES to CallingTaiwan', () => {
+    const nowIso = '2026-11-14T05:00:00.000Z';
+
+    assert.deepEqual(
+      DEFAULT_SCRAPER_SOURCES.map((s) => new URL(s.url).hostname),
+      ['www.callingtaiwan.com.tw', 'www.callingtaiwan.com.tw'],
+    );
+
+    const cookieBannerHtml = `
+      <div>
+        <p>本網站使用第三方 Cookie 提供相關廣告，並記住您的位置以提供個人化服務。您可以選取下方的「選擇退出」按鈕，選擇退出這些 Cookie。如果您有 Uber 帳戶，您可以在 此處 選擇不「出售」或「分享」您的資料。</p>
+        <p>請先閱讀我們的「隱私權政策」與「服務條款」再繼續。</p>
+      </div>
+    `;
+
+    const existingFeed: CouponFeed = {
+      updatedAt: '2026-11-13T19:00:26.846Z',
+      coupons: [
+        {
+          code: '出售',
+          platform: 'ubereats',
+          title:
+            '本網站使用第三方 Cookie 提供相關廣告，並記住您的位置以提供個人化服務。您可以選取下方的「選擇退出」按鈕，選擇退出這些 Cookie。如果您有 Uber 帳戶，您可以在 此處 選擇不或「分享」您的資料。',
+          category: 'wallet',
+          expiresAt: null,
+          sourceUrl: 'https://www.ubereats.com/tw',
+          updatedAt: '2026-11-13T19:00:26.846Z',
+        },
+        {
+          code: '分享',
+          platform: 'ubereats',
+          title:
+            '本網站使用第三方 Cookie 提供相關廣告，並記住您的位置以提供個人化服務。您可以選取下方的「選擇退出」按鈕，選擇退出這些 Cookie。如果您有 Uber 帳戶，您可以在 此處 選擇不「出售」或您的資料。',
+          category: 'wallet',
+          expiresAt: null,
+          sourceUrl: 'https://www.ubereats.com/tw',
+          updatedAt: '2026-11-13T19:00:26.846Z',
+        },
+        {
+          code: 'KB56OLD',
+          platform: 'foodpanda',
+          title: '舊的 kb56 來源項目',
+          category: 'wallet',
+          expiresAt: null,
+          sourceUrl: 'https://kb56.tw/foodpanda-promo-code/',
+          updatedAt: '2026-11-10T00:00:00.000Z',
+        },
+        {
+          code: '中華電信十一月生快',
+          platform: 'ubereats',
+          title: '【外送】輸入折扣碼抽最高 3 折或滿額折抵優惠',
+          category: 'wallet',
+          expiresAt: null,
+          sourceUrl:
+            'https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/',
+          updatedAt: '2026-11-12T06:30:54.000Z',
+        },
+      ],
+    };
+
+    const feed = buildCouponFeed(
+      [
+        {
+          platform: 'ubereats',
+          url: 'https://example.com/noise-page',
+          html: cookieBannerHtml,
+        },
+      ],
+      existingFeed,
+      nowIso,
+    );
+
+    const codes = feed.coupons.map((c) => c.code);
+    assert.deepEqual(codes, ['中華電信十一月生快']);
   });
 });

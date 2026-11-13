@@ -19,24 +19,8 @@ export const DEFAULT_SCRAPER_SOURCES: ConfiguredSource[] = [
     url: 'https://www.callingtaiwan.com.tw/foodpanda-coupon-code/',
   },
   {
-    platform: 'foodpanda',
-    url: 'https://www.foodpanda.com.tw/contents/deals',
-  },
-  {
-    platform: 'foodpanda',
-    url: 'https://kb56.tw/foodpanda-promo-code/',
-  },
-  {
     platform: 'ubereats',
     url: 'https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/',
-  },
-  {
-    platform: 'ubereats',
-    url: 'https://www.ubereats.com/tw',
-  },
-  {
-    platform: 'ubereats',
-    url: 'https://kb56.tw/uber-eats-promo-code/',
   },
 ];
 
@@ -67,6 +51,12 @@ async function fetchHtmlSource(
 }
 
 async function main(): Promise<void> {
+  const args = new Set(process.argv.slice(2));
+  if (args.has('--print-sources')) {
+    console.log(JSON.stringify(DEFAULT_SCRAPER_SOURCES));
+    return;
+  }
+
   let existingFeed: CouponFeed | null = null;
   if (existsSync(feedFilePath)) {
     try {
@@ -78,10 +68,20 @@ async function main(): Promise<void> {
     }
   }
 
-  const fetchedSources: ScraperSourceInput[] = [];
-  for (const src of DEFAULT_SCRAPER_SOURCES) {
-    const item = await fetchHtmlSource(src);
-    if (item) fetchedSources.push(item);
+  let fetchedSources: ScraperSourceInput[] = [];
+  if (args.has('--sources-stdin')) {
+    const rawInput = readFileSync(0, 'utf8').trim();
+    if (rawInput) {
+      const parsed = JSON.parse(rawInput) as ScraperSourceInput[];
+      if (Array.isArray(parsed)) {
+        fetchedSources = parsed;
+      }
+    }
+  } else {
+    for (const src of DEFAULT_SCRAPER_SOURCES) {
+      const item = await fetchHtmlSource(src);
+      if (item) fetchedSources.push(item);
+    }
   }
 
   const nextFeed = buildCouponFeed(

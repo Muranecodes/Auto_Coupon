@@ -25,11 +25,19 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Setup Python and Selenium
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && pip install selenium
+
       - name: Run tests
         run: npm test
 
       - name: Scrape latest Taiwan foodpanda & Uber Eats coupons
-        run: npm run scrape
+        run: python scripts/fetch_coupons.py
 
       - name: Commit and push updated Coupon Feed if changed
         run: |
