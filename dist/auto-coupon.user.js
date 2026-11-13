@@ -2,7 +2,7 @@
 // @name         Auto_Coupon — 熊貓 & Uber Eats 自動領優惠券
 // @namespace    https://github.com/Muranecodes/Auto_Coupon
 // @version      1.3.1
-// @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼、智慧解析文字優惠碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
+// @description  在台灣 foodpanda 與 Uber Eats 網頁版自動批次歸戶優惠碼、一鍵複製結帳限定碼（支援 iOS Safari Stay/Userscripts 與 Android/電腦 Tampermonkey）
 // @author       Muranecodes
 // @match        *://*.foodpanda.com.tw/*
 // @match        *://foodpanda.com.tw/*
@@ -392,94 +392,6 @@ function partitionPlatformCoupons(
   }
 
   return { walletCoupons, checkoutCoupons };
-}
-
-// --- src/userscript/parser.ts ---
-const NOISE_TOKEN_REGEX =
-  /^(?:\d+|[$＄]\d+|NT\$?\d+|滿\d+.*|折\d+.*|\d+(?:\.\d+)?折|免運|免外送費|外送|優惠|優惠碼|優惠券|折扣碼|優惠序號|輸入|代碼|使用|領取|點我|立即|限時|最高|享\d+.*)$/i;
-
-const PROSE_SUBSTRING_REGEX =
-  /您|你的|您的|所在|區域|路段|地址|系統|首頁|點擊|選擇|步驟|說明|注意事項/;
-const COUPON_CONTEXT_HINT_REGEX =
-  /優惠碼|優惠序號|折扣碼|優惠代碼|折扣代碼|代碼|輸入|\bcode\b/i;
-
-function escapeRegExp(str        )         {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function isValidCandidateToken(raw        )          {
-  const token = raw.trim();
-  if (token.length < 2 || token.length > 20) return false;
-  if (NOISE_TOKEN_REGEX.test(token)) return false;
-  if (PROSE_SUBSTRING_REGEX.test(token)) return false;
-  if (/^\d+$/.test(token)) return false;
-  if (/^(https?|www|foodpanda|ubereats)$/i.test(token)) return false;
-  return /^[A-Za-z0-9\u4e00-\u9fff_-]+$/.test(token);
-}
-function hasCouponHint(text        )          {
-  return COUPON_CONTEXT_HINT_REGEX.test(text);
-}
-function stripCouponCodeFromTitle(
-  blockText        ,
-  code        ,
-)         {
-  const escaped = escapeRegExp(code);
-  const cleaned = blockText
-    .replace(new RegExp(`[【「『]\\s*${escaped}\\s*[】」』]`, 'g'), '')
-    .replace(
-      new RegExp(
-        `(?:輸入)?(?:優惠碼|優惠序號|折扣碼|代碼|code)\\s*[:：為是]?\\s*${escaped}`,
-        'gi',
-      ),
-      '',
-    )
-    .replace(/\s+/g, ' ')
-    .replace(/^[,，、:：\-—\s]+|[,，、:：\-—\s]+$/g, '')
-    .trim();
-  return cleaned || `${code} 優惠券`;
-}
-function extractCandidateChips(text        )                  {
-  const results                  = [];
-  const seen = new Set        ();
-
-  const pushCandidate = (raw                    ) => {
-    if (!raw) return;
-    const cleaned = raw
-      .trim()
-      .replace(/^[【「『"'\s:：]+|[】」』"'\s]+$/g, '');
-    if (!isValidCandidateToken(cleaned)) return;
-    if (seen.has(cleaned)) return;
-    seen.add(cleaned);
-    results.push({ code: cleaned, selected: true });
-  };
-
-  const lines = text.split(/[\r\n]+/);
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    const explicitPattern =
-      /【([^】\n]{2,20})】|「([^」\n]{2,20})」|『([^』\n]{2,20})』|(?:優惠碼|優惠序號|折扣碼|代碼|code)\s*[:：]\s*([A-Za-z0-9\u4e00-\u9fff_-]{2,15})(?=\s|$|[，,。！!（(）)])|輸入\s*[:：]?\s*([A-Za-z0-9_-]{3,20})(?=\s|$|[，,。！!（(）)])/gi;
-
-    let matchedExplicitInLine = false;
-    let match                        ;
-    while ((match = explicitPattern.exec(line)) !== null) {
-      const token = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5];
-      if (token) {
-        matchedExplicitInLine = true;
-        pushCandidate(token);
-      }
-    }
-
-    if (!matchedExplicitInLine && !/[。！!？?（）():：]/.test(line)) {
-      const rawTokens = line.split(/[,，、;；\s]+/);
-      for (const tok of rawTokens) {
-        pushCandidate(tok);
-      }
-    }
-  }
-
-  return results;
 }
 
 // --- src/userscript/platforms.ts ---
@@ -1799,16 +1711,19 @@ const SHADOW_STYLES = `
     background: #ffffff;
     color: #1f2937;
     box-shadow: 0 10px 32px rgba(219, 39, 119, 0.16), 0 2px 10px rgba(0, 0, 0, 0.08);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     transition: transform 0.22s ease, opacity 0.22s ease;
     box-sizing: border-box;
     border: 1px solid rgba(244, 114, 182, 0.3);
   }
-  /* Desktop compact floating card (under 50vh, width 360px) */
+  /* Desktop top-anchored floating card (header & tabs stay pinned; bottom shrinks upward) */
   @media (min-width: 641px) {
     .ac-sheet {
       right: 20px;
-      bottom: 80px;
+      top: max(12px, calc(48vh - 80px));
+      bottom: auto;
       width: 360px;
       max-width: calc(100vw - 40px);
       max-height: 52vh;
@@ -1816,12 +1731,13 @@ const SHADOW_STYLES = `
       padding: 12px 14px;
     }
   }
-  /* Mobile compact bottom sheet (capped under 50vh) */
+  /* Mobile fixed-height bottom sheet (header & tabs stay pinned; tab body scrolls internally) */
   @media (max-width: 640px) {
     .ac-sheet {
       left: 0;
       right: 0;
       bottom: 0;
+      height: 45vh;
       max-height: 50vh;
       border-radius: 18px 18px 0 0;
       padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
@@ -1835,6 +1751,7 @@ const SHADOW_STYLES = `
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    flex-shrink: 0;
   }
   .ac-notice {
     font-size: 11px;
@@ -1845,6 +1762,7 @@ const SHADOW_STYLES = `
     padding: 6px 8px;
     margin-bottom: 8px;
     line-height: 1.4;
+    flex-shrink: 0;
   }
   .ac-title {
     font-size: 14px;
@@ -1862,6 +1780,7 @@ const SHADOW_STYLES = `
     border-radius: 999px;
     margin-bottom: 8px;
     border: 1px solid #fce7f3;
+    flex-shrink: 0;
   }
   .ac-tab-btn {
     flex: 1;
@@ -1901,7 +1820,11 @@ const SHADOW_STYLES = `
     display: none;
   }
   .ac-tab-panel[data-active="true"] {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .ac-btn {
     padding: 6px 12px;
@@ -1912,7 +1835,7 @@ const SHADOW_STYLES = `
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.15s ease, transform 0.1s ease;
+    transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   }
   .ac-btn:active {
     transform: scale(0.97);
@@ -1932,6 +1855,53 @@ const SHADOW_STYLES = `
     font-size: 11px;
     border-radius: 8px;
   }
+  .ac-action-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 2px 0 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #fce7f3;
+    flex-shrink: 0;
+  }
+  .ac-btn-cta {
+    flex: 1;
+    min-height: 38px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  .ac-btn-cta:active {
+    transform: translateY(1px) scale(0.98);
+  }
+  .ac-btn-cta-primary {
+    border: none;
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(219, 39, 119, 0.28);
+  }
+  .ac-btn-cta-secondary {
+    background: #ffffff;
+    color: #be185d;
+    border: 1.5px solid #f472b6;
+    box-shadow: 0 2px 6px rgba(219, 39, 119, 0.12);
+  }
+  .ac-btn-cta-secondary[data-paused="false"] {
+    opacity: 0.58;
+    box-shadow: none;
+  }
+  .ac-btn-cta-secondary[data-paused="true"] {
+    opacity: 1;
+    background: #fdf2f8;
+    box-shadow: 0 4px 12px rgba(219, 39, 119, 0.22);
+  }
   .ac-row {
     display: flex;
     align-items: center;
@@ -1941,48 +1911,13 @@ const SHADOW_STYLES = `
     font-size: 12px;
   }
   .ac-section {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #fce7f3;
+    margin-top: 4px;
+    padding-top: 6px;
     font-size: 12px;
-  }
-  .ac-chip-list {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin: 6px 0;
-  }
-  .ac-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: #fce7f3;
-    color: #9d174d;
-    font-size: 12px;
-    cursor: pointer;
-    border: 1px solid #f9a8d4;
-  }
-  .ac-chip[data-selected="false"] {
-    background: #f3f4f6;
-    color: #9ca3af;
-    border-color: #d1d5db;
-    text-decoration: line-through;
-  }
-  .ac-input {
-    width: 100%;
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid #fbcfe8;
-    background: #fff;
-    font-size: 12px;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.15s ease;
-  }
-  .ac-input:focus {
-    border-color: #ec4899;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
   .ac-select {
     padding: 3px 6px;
@@ -1998,7 +1933,8 @@ const SHADOW_STYLES = `
     border-color: #ec4899;
   }
   .ac-scroll-list {
-    max-height: 160px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     margin-top: 4px;
     padding-right: 2px;
@@ -2046,6 +1982,7 @@ const SHADOW_STYLES = `
     gap: 4px;
     margin-bottom: 6px;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .ac-filter-chips {
     display: flex;
@@ -2280,9 +2217,7 @@ function createEl                  (
   let manualQueueCodes           = [];
   let feedWalletCoupons                = [];
   let feedCheckoutCoupons                = [];
-  let candidateChips                  = [];
   let pausedRemainingCodes           = [];
-  const liveStatusByCode = new Map                          ();
   let copiedCheckoutCode                = null;
   let activeTaskPromise                       = null;
   let runStatusText = '待命';
@@ -2414,7 +2349,7 @@ function createEl                  (
       'data-tab': 'queue',
       'data-active': 'true',
     },
-    '📋 待領佇列',
+    '💰 省錢錢',
   );
   const tabHistoryBtn = createEl(
     document,
@@ -2470,11 +2405,48 @@ function createEl                  (
     'data-active': 'false',
   });
 
-  const statusRow = createEl(document, 'div', { class: 'ac-row' });
+  const actionRow = createEl(document, 'div', {
+    class: 'ac-action-row',
+    'data-role': 'action-row',
+  });
+  const startRunBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn-cta ac-btn-cta-primary',
+      'data-role': 'start-run-btn',
+    },
+    '🚀 開始批次歸戶',
+  )                     ;
+  if (platform.id === 'ubereats') {
+    startRunBtn.style.background =
+      'linear-gradient(135deg, #06C167 0%, #059669 100%)';
+    startRunBtn.style.boxShadow = '0 4px 12px rgba(6, 193, 103, 0.28)';
+  }
+  const resumeRunBtn = createEl(
+    document,
+    'button',
+    {
+      type: 'button',
+      class: 'ac-btn-cta ac-btn-cta-secondary',
+      'data-role': 'resume-run-btn',
+      'data-paused': 'false',
+    },
+    '▶ 繼續執行',
+  )                     ;
+  actionRow.appendChild(startRunBtn);
+  actionRow.appendChild(resumeRunBtn);
+  tabQueuePanel.appendChild(actionRow);
+
+  const statusRow = createEl(document, 'div', {
+    class: 'ac-row',
+    style: 'justify-content: space-between;',
+  });
   const statusEl = createEl(
     document,
     'span',
-    { 'data-role': 'run-status' },
+    { 'data-role': 'run-status', style: 'flex: 1; min-width: 0;' },
     '狀態：待命',
   );
   const syncFeedBtn = createEl(
@@ -2490,17 +2462,6 @@ function createEl                  (
   statusRow.appendChild(statusEl);
   statusRow.appendChild(syncFeedBtn);
   tabQueuePanel.appendChild(statusRow);
-
-  const feedUrlRow = createEl(document, 'div', { class: 'ac-row' });
-  const feedUrlInput = createEl(document, 'input', {
-    type: 'text',
-    class: 'ac-input',
-    'data-role': 'feed-url-input',
-    value: feedUrl,
-    placeholder: '遠端 Coupon Feed JSON URL',
-  })                    ;
-  feedUrlRow.appendChild(feedUrlInput);
-  tabQueuePanel.appendChild(feedUrlRow);
 
   const summaryEl = createEl(
     document,
@@ -2565,77 +2526,6 @@ function createEl                  (
   forceRetryRow.appendChild(speedControlWrapper);
   tabQueuePanel.appendChild(forceRetryRow);
 
-  const actionRow = createEl(document, 'div', { class: 'ac-row' });
-  const startRunBtn = createEl(
-    document,
-    'button',
-    { type: 'button', class: 'ac-btn', 'data-role': 'start-run-btn' },
-    '開始批次歸戶',
-  )                     ;
-  if (platform.id === 'ubereats') {
-    startRunBtn.style.background = '#06C167';
-  }
-  const resumeRunBtn = createEl(
-    document,
-    'button',
-    {
-      type: 'button',
-      class: 'ac-btn ac-btn-secondary',
-      'data-role': 'resume-run-btn',
-    },
-    '繼續執行',
-  )                     ;
-  actionRow.appendChild(startRunBtn);
-  actionRow.appendChild(resumeRunBtn);
-  tabQueuePanel.appendChild(actionRow);
-
-  const walletSection = createEl(document, 'div', { class: 'ac-section' });
-  walletSection.appendChild(
-    createEl(document, 'div', undefined, '歸戶型優惠碼佇列（Wallet Coupons）：'),
-  );
-  const walletListEl = createEl(document, 'div', {
-    class: 'ac-scroll-list',
-    'data-role': 'wallet-coupon-list',
-  });
-  walletSection.appendChild(walletListEl);
-  tabQueuePanel.appendChild(walletSection);
-
-  const parserSection = createEl(document, 'div', { class: 'ac-section' });
-  parserSection.appendChild(
-    createEl(
-      document,
-      'div',
-      undefined,
-      '智慧文字擷取（貼上 LINE / 懶人包文字）：',
-    ),
-  );
-  const parserRow = createEl(document, 'div', { class: 'ac-row' });
-  const freeformInput = createEl(document, 'input', {
-    type: 'text',
-    class: 'ac-input',
-    'data-role': 'freeform-input',
-    placeholder: '貼上含優惠碼的整段文字...',
-  })                    ;
-  const parseTextBtn = createEl(
-    document,
-    'button',
-    {
-      type: 'button',
-      class: 'ac-btn ac-btn-secondary',
-      'data-role': 'parse-text-btn',
-    },
-    '解析優惠碼',
-  )                     ;
-  parserRow.appendChild(freeformInput);
-  parserRow.appendChild(parseTextBtn);
-  parserSection.appendChild(parserRow);
-  const candidateChipListEl = createEl(document, 'div', {
-    class: 'ac-chip-list',
-    'data-role': 'candidate-chip-list',
-  });
-  parserSection.appendChild(candidateChipListEl);
-  tabQueuePanel.appendChild(parserSection);
-
   // History Panel Setup
   const historyFilterBar = createEl(document, 'div', {
     class: 'ac-history-filter-bar',
@@ -2696,7 +2586,6 @@ function createEl                  (
       : true;
     if (ok) {
       clearRedemptionRecords(platform.id);
-      liveStatusByCode.clear();
       expandedHistoryCodes.clear();
       renderState();
     }
@@ -2756,37 +2645,12 @@ function createEl                  (
     return dedupeCouponCodes([
       ...manualQueueCodes,
       ...feedWalletCoupons.map((c) => c.code),
-      ...candidateChips.filter((c) => c.selected).map((c) => c.code),
     ]);
   }
 
   function computeUntriedCount()         {
     const records = loadRedemptionRecords(platform.id);
     return getEffectiveWalletCodes().filter((code) => !records[code]).length;
-  }
-
-  function renderWalletCoupons()       {
-    clearChildren(walletListEl);
-    const records = loadRedemptionRecords(platform.id);
-    const titleByCode = new Map(
-      feedWalletCoupons.map((c) => [normalizeCouponCode(c.code), c.title]),
-    );
-
-    for (const code of getEffectiveWalletCodes()) {
-      const row = document.createElement('div');
-      row.setAttribute('class', 'ac-row');
-      row.setAttribute('data-wallet-code', code);
-
-      const status                   =
-        liveStatusByCode.get(code) ?? records[code]?.outcome ?? 'pending';
-      row.setAttribute('data-coupon-status', status);
-
-      const title = titleByCode.get(code);
-      row.textContent = title
-        ? `${code} (${title}) [${status}]`
-        : `${code} [${status}]`;
-      walletListEl.appendChild(row);
-    }
   }
 
   function renderHistory()       {
@@ -2936,7 +2800,6 @@ function createEl                  (
         e?.stopPropagation?.();
         deleteRedemptionRecord(platform.id, rec.code);
         expandedHistoryCodes.delete(rec.code);
-        liveStatusByCode.delete(rec.code);
         renderState();
       });
       actionsRow.appendChild(resetBtn);
@@ -2945,26 +2808,6 @@ function createEl                  (
       card.appendChild(body);
 
       historyListEl.appendChild(card);
-    }
-  }
-
-  function renderCandidateChips()       {
-    clearChildren(candidateChipListEl);
-    for (const chip of candidateChips) {
-      const btn = document.createElement('button');
-      btn.setAttribute('type', 'button');
-      btn.setAttribute('class', 'ac-chip');
-      btn.setAttribute('data-role', 'candidate-chip');
-      btn.setAttribute('data-code', chip.code);
-      btn.setAttribute('data-selected', chip.selected ? 'true' : 'false');
-      btn.textContent = chip.code;
-      btn.addEventListener('click', () => {
-        chip.selected = !chip.selected;
-        btn.setAttribute('data-selected', chip.selected ? 'true' : 'false');
-        renderWalletCoupons();
-        renderState();
-      });
-      candidateChipListEl.appendChild(btn);
     }
   }
 
@@ -3010,16 +2853,22 @@ function createEl                  (
 
   function renderState()       {
     sheetEl.setAttribute('data-open', isOpen ? 'true' : 'false');
-    statusEl.textContent = `狀態：${runStatusText}`;
+    const totalWalletCount = getEffectiveWalletCodes().length;
+    const untriedCount = computeUntriedCount();
+    statusEl.textContent =
+      totalWalletCount > 0
+        ? `狀態：${runStatusText}（可領取 ${untriedCount} / 共 ${totalWalletCount} 筆）`
+        : `狀態：${runStatusText}`;
     summaryEl.textContent = `成功: ${summaryCounts.claimed} | 已領過: ${summaryCounts.already_claimed} | 無效/過期: ${summaryCounts.invalid_or_expired}`;
-    pillBadge.textContent = String(computeUntriedCount());
-    renderWalletCoupons();
+    pillBadge.textContent = String(untriedCount);
+    const isPaused =
+      pausedRemainingCodes.length > 0 || rateLimitCooldownTimer !== null;
+    resumeRunBtn.setAttribute('data-paused', isPaused ? 'true' : 'false');
     renderHistory();
   }
 
   async function syncFeed()                {
-    const activeUrl = feedUrlInput.value.trim() || feedUrl;
-    const feed = await fetchCouponFeed(activeUrl, options.fetchFeed);
+    const feed = await fetchCouponFeed(feedUrl, options.fetchFeed);
     const { walletCoupons, checkoutCoupons } = partitionPlatformCoupons(
       feed,
       platform.id,
@@ -3081,12 +2930,6 @@ function createEl                  (
     forceRetry = Boolean(forceRetryCheckbox.checked);
   });
 
-  parseTextBtn.addEventListener('click', () => {
-    candidateChips = extractCandidateChips(freeformInput.value);
-    renderCandidateChips();
-    renderState();
-  });
-
   function startRateLimitCooldown(initialMsg        )       {
     clearRateLimitCooldown();
     let remainingSeconds = 600;
@@ -3125,7 +2968,6 @@ function createEl                  (
         already_claimed: 0,
         invalid_or_expired: 0,
       };
-      liveStatusByCode.clear();
     }
 
     const dedupedCodes = dedupeCouponCodes(codesToRun);
@@ -3177,9 +3019,6 @@ function createEl                  (
       return;
     }
 
-    for (const c of filteredCodes) {
-      liveStatusByCode.set(c, 'pending');
-    }
     runStatusText = `執行中 (0/${filteredCodes.length})`;
     renderState();
 
@@ -3209,7 +3048,6 @@ function createEl                  (
         return;
       }
 
-      liveStatusByCode.set(code, 'submitting');
       runStatusText = `執行中 (${i + 1}/${filteredCodes.length})：${code}`;
       renderState();
 
@@ -3241,7 +3079,6 @@ function createEl                  (
 
         const postBlock = platform.detectChallengeOrAuthBlock(document);
         if (postBlock) {
-          liveStatusByCode.set(code, 'pending');
           pausedRemainingCodes = filteredCodes.slice(i);
           runStatusText = `已暫停：${postBlock}`;
           renderState();
@@ -3250,24 +3087,20 @@ function createEl                  (
 
         const result = platform.classifyFeedback(document, snapshot);
         if (result.outcome === 'rate_limited') {
-          liveStatusByCode.set(code, 'pending');
           pausedRemainingCodes = filteredCodes.slice(i);
           startRateLimitCooldown(result.message);
           return;
         }
-        liveStatusByCode.set(code, result.outcome);
         summaryCounts[result.outcome] += 1;
         saveRedemptionRecord(platform.id, code, result.outcome, result.message);
         renderState();
       } catch {
         const fallbackResult = platform.classifyFeedback(document);
         if (fallbackResult.outcome === 'rate_limited') {
-          liveStatusByCode.set(code, 'pending');
           pausedRemainingCodes = filteredCodes.slice(i);
           startRateLimitCooldown(fallbackResult.message);
           return;
         }
-        liveStatusByCode.set(code, fallbackResult.outcome);
         summaryCounts[fallbackResult.outcome] += 1;
         saveRedemptionRecord(
           platform.id,

@@ -24,10 +24,6 @@ _Avoid_: Cart code, payment code, manual promo
 The structured, periodically updated catalog of active Coupons published by the repository for one-click synchronization.
 _Avoid_: Remote database, coupon pool, cloud list
 
-**Candidate Chip** (`候選優惠碼標籤`):
-An interactive preview token produced by parsing freeform text, allowing the user to toggle or remove extracted strings before starting a Redemption Run.
-_Avoid_: Parsed tag, preview item, token pill
-
 **Redemption Run** (`批次歸戶作業`):
 A sequential execution that submits selected Wallet Coupons one by one into a Platform's wallet page and records each outcome.
 _Avoid_: Batch job, claim queue, automation session

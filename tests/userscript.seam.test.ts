@@ -153,10 +153,11 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     await controller.waitForIdle();
 
     assert.deepEqual(submittedCodes, ['CODE_A', 'CODE_B']);
+    assert.equal(loadRedemptionRecords('foodpanda')['CODE_A']?.outcome, 'claimed');
     assert.equal(
       shadow
-        .querySelector('[data-wallet-code="CODE_A"]')
-        ?.getAttribute('data-coupon-status'),
+        .querySelector('[data-role="history-item"][data-code="CODE_A"]')
+        ?.getAttribute('data-outcome'),
       'claimed',
     );
   });
@@ -266,7 +267,7 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     assert.match(ueSummary, /已領過:\s*1/);
   });
 
-  it('syncs remote Coupon Feed, filters expired coupons, separates Wallet Coupons from Checkout Coupons with one-tap copy, and parses freeform Chinese/alphanumeric text into interactive Candidate Chips', async () => {
+  it('syncs remote Coupon Feed, filters expired coupons, separates Wallet Coupons from Checkout Coupons with one-tap copy, and omits removed queue/parser/feedUrl UI controls', async () => {
     const { clipboardWrites } = installFakeDom(
       'https://www.foodpanda.com.tw/vouchers',
     );
@@ -347,6 +348,18 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     const badge = shadow.querySelector('[data-role="pill-badge"]')!;
     assert.equal(badge.textContent, '1');
 
+    // Removed UI controls should not exist in Shadow DOM
+    assert.equal(shadow.querySelector('[data-role="wallet-coupon-list"]'), null);
+    assert.equal(shadow.querySelector('[data-role="freeform-input"]'), null);
+    assert.equal(shadow.querySelector('[data-role="parse-text-btn"]'), null);
+    assert.equal(shadow.querySelector('[data-role="candidate-chip-list"]'), null);
+    assert.equal(shadow.querySelector('[data-role="feed-url-input"]'), null);
+
+    // Compact queue counter should still reflect untried/total feed coupons in status text
+    const statusText =
+      shadow.querySelector('[data-role="run-status"]')?.textContent ?? '';
+    assert.match(statusText, /可領取 1 \/ 共 1 筆/);
+
     // Checkout Coupon ('CTBC2026') is rendered in the checkout-only copy section and supports one-tap copy
     const checkoutList = shadow.querySelector(
       '[data-role="checkout-coupon-list"]',
@@ -363,42 +376,14 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     assert.deepEqual(clipboardWrites, ['CTBC2026']);
     assert.match(copyBtn.textContent, /已複製/);
 
-    // Paste freeform promotional text with Chinese & alphanumeric codes + noise
-    const freeformInput = shadow.querySelector<HTMLInputElement>(
-      '[data-role="freeform-input"]',
-    )!;
-    const parseBtn = shadow.querySelector<HTMLButtonElement>(
-      '[data-role="parse-text-btn"]',
-    )!;
-
-    freeformInput.value = `
-      🔥 本週熊貓隱藏優惠整理！滿499折100超划算：
-      1. 生鮮雜貨輸入【天天省天天爽】享85折優惠
-      2. 美食外送優惠碼：PANDA888 滿$299折$50
-      3. 下午茶輸入「週三買熊貓」免外送費
-    `;
-    freeformInput.dispatchEvent(new Event('input', { bubbles: true }));
-    parseBtn.click();
-
-    const chipElements = shadow.querySelectorAll('[data-role="candidate-chip"]');
-    const chipCodes = chipElements.map((el) => el.getAttribute('data-code'));
-    assert.deepEqual(chipCodes, ['天天省天天爽', 'PANDA888', '週三買熊貓']);
-
-    // Deselect 'PANDA888' chip before starting Redemption Run
-    const panda888Chip = shadow.querySelector<HTMLElement>(
-      '[data-code="PANDA888"]',
-    )!;
-    panda888Chip.click();
-    assert.equal(panda888Chip.getAttribute('data-selected'), 'false');
-
-    // Start Redemption Run: should run synced Wallet Coupon ('十一月熊貓') + selected Candidate Chips ('天天省天天爽', '週三買熊貓'), excluding 'PANDA888', 'CTBC2026', and 'EXPIRED_OLD'
+    // Start Redemption Run: should run synced Wallet Coupon ('十一月熊貓'), excluding 'CTBC2026' and 'EXPIRED_OLD'
     const startBtn = shadow.querySelector<HTMLButtonElement>(
       '[data-role="start-run-btn"]',
     )!;
     startBtn.click();
     await controller.waitForIdle();
 
-    assert.deepEqual(submittedCodes, ['十一月熊貓', '天天省天天爽', '週三買熊貓']);
+    assert.deepEqual(submittedCodes, ['十一月熊貓']);
   });
 
   it('ignores dormant #px-captcha and script text on foodpanda, and auto-clicks Uber Eats 新增優惠序號 button to reveal the promo input modal', async () => {
@@ -673,14 +658,9 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       .click();
     await controller.waitForIdle();
 
-    const statusAttr1 = shadow
-      .querySelector('[data-wallet-code="天天省天天爽"]')
-      ?.getAttribute('data-coupon-status');
-    const statusAttr2 = shadow
-      .querySelector('[data-wallet-code="週二星享日"]')
-      ?.getAttribute('data-coupon-status');
-    assert.equal(statusAttr1, 'claimed');
-    assert.equal(statusAttr2, 'claimed');
+    const records = loadRedemptionRecords('foodpanda');
+    assert.equal(records['天天省天天爽']?.outcome, 'claimed');
+    assert.equal(records['週二星享日']?.outcome, 'claimed');
   });
 
   it('mounts and preserves the floating pill on Uber Eats under frozen XHR prototype, Trusted Types CSP, React hydration body wipe, and header search input', async () => {
@@ -838,8 +818,23 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       '[data-role="tab-checkout"]',
     );
     assert.ok(tabQueueBtn, 'Queue tab button should exist');
+    assert.match(tabQueueBtn.textContent, /省錢錢/);
     assert.ok(tabHistoryBtn, 'History tab button should exist');
     assert.ok(tabCheckoutBtn, 'Checkout tab button should exist');
+
+    // Verify action-row (Start / Resume CTA buttons) is placed above run-status in Tab 1
+    const queuePanel = shadow.querySelector<HTMLElement>('[data-panel="queue"]')!;
+    const firstChild = queuePanel.children[0];
+    assert.equal(firstChild?.getAttribute('data-role'), 'action-row');
+    const resumeBtn = shadow.querySelector<HTMLButtonElement>(
+      '[data-role="resume-run-btn"]',
+    )!;
+    assert.equal(resumeBtn.getAttribute('data-paused'), 'false');
+
+    // Verify Shadow DOM stylesheet enforces top-anchored desktop card and fixed-height mobile sheet
+    const styleText = shadow.querySelector('style')?.textContent ?? '';
+    assert.match(styleText, /top:\s*max\(12px,\s*calc\(48vh - 80px\)\)/);
+    assert.match(styleText, /height:\s*45vh/);
 
     // Default active tab is queue
     assert.equal(tabQueueBtn.getAttribute('data-active'), 'true');
@@ -1074,19 +1069,22 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       `Status indicator should display rate limit warning. Got: ${statusText}`,
     );
 
-    // Check wallet list: UBER_TOO_FAST and UBER_PENDING_3 should remain pending
-    const remainingRow = shadow.querySelector(
-      '[data-wallet-code="UBER_TOO_FAST"]',
-    );
-    assert.equal(remainingRow?.getAttribute('data-coupon-status'), 'pending');
+    // Check storage: UBER_TOO_FAST and UBER_PENDING_3 must not be poisoned into history
+    const midRecords = loadRedemptionRecords('ubereats');
+    assert.equal(midRecords['UBER_TOO_FAST'], undefined);
+    assert.equal(midRecords['UBER_PENDING_3'], undefined);
 
-    // Now simulate user waiting / clicking resume after cooldown
-    mockRateLimitActive = false;
+    // Resume button should highlight as paused during rate limit cooldown
     const resumeBtn = shadow.querySelector<HTMLButtonElement>(
       '[data-role="resume-run-btn"]',
     )!;
+    assert.equal(resumeBtn.getAttribute('data-paused'), 'true');
+
+    // Now simulate user waiting / clicking resume after cooldown
+    mockRateLimitActive = false;
     resumeBtn.click();
     await controller.waitForIdle();
+    assert.equal(resumeBtn.getAttribute('data-paused'), 'false');
 
     // All 3 codes must have been submitted successfully now
     assert.deepEqual(submittedCodes, [
