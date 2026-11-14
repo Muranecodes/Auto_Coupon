@@ -84,16 +84,18 @@ const SHADOW_STYLES = `
     z-index: 2147483647;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 10px 14px;
     border-radius: 999px;
     border: 2px solid rgba(255, 255, 255, 0.95);
     background: linear-gradient(135deg, #f472b6 0%, #ec4899 50%, #c084fc 100%);
     color: #fff;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35);
+    box-shadow: 0 6px 24px rgba(236, 72, 153, 0.4);
     cursor: pointer;
+    white-space: nowrap;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
@@ -102,15 +104,32 @@ const SHADOW_STYLES = `
   }
   .ac-pill:hover {
     transform: scale(1.02);
-    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45);
+    box-shadow: 0 8px 26px rgba(236, 72, 153, 0.48);
   }
   .ac-pill-badge {
     background: #fff;
     color: #db2777;
     border-radius: 999px;
     padding: 2px 7px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
+    display: inline-block;
+  }
+  .ac-pill-close-icon {
+    display: none;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  @keyframes ac-sheet-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
   .ac-sheet {
     position: fixed;
@@ -121,25 +140,59 @@ const SHADOW_STYLES = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: transform 0.22s ease, opacity 0.22s ease;
+    transition: opacity 0.18s ease;
     box-sizing: border-box;
     border: 1px solid rgba(244, 114, 182, 0.3);
   }
-  /* Desktop top-anchored floating card (header & tabs stay pinned; bottom shrinks upward) */
+  .ac-sheet[data-open="true"] {
+    animation: ac-sheet-pop 0.16s ease-out;
+  }
+  /* Desktop: sheet grows out of floating pill position; pill becomes circular ✕ collapse button */
   @media (min-width: 641px) {
+    .ac-pill[data-open="true"] {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      gap: 0;
+    }
+    .ac-pill[data-open="true"] .ac-pill-label,
+    .ac-pill[data-open="true"] .ac-pill-badge {
+      display: none;
+    }
+    .ac-pill[data-open="true"] .ac-pill-close-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     .ac-sheet {
-      right: 20px;
-      top: max(12px, calc(48vh - 80px));
-      bottom: auto;
+      right: 16px;
+      bottom: calc(146px + env(safe-area-inset-bottom, 0px));
+      top: auto;
       width: 360px;
-      max-width: calc(100vw - 40px);
-      max-height: 52vh;
+      max-width: calc(100vw - 16px);
+      max-height: min(62vh, calc(100vh - 166px));
       border-radius: 16px;
       padding: 12px 14px;
+      transform-origin: bottom right;
+    }
+    .ac-sheet .ac-header {
+      cursor: grab;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .ac-sheet .ac-header:active {
+      cursor: grabbing;
+    }
+    .ac-sheet .ac-close-btn {
+      display: none;
     }
   }
-  /* Mobile fixed-height bottom sheet (header & tabs stay pinned; tab body scrolls internally) */
+  /* Mobile: fixed-height bottom sheet; pill hides while open and header keeps close button */
   @media (max-width: 640px) {
+    .ac-pill[data-open="true"] {
+      display: none;
+    }
     .ac-sheet {
       left: 0;
       right: 0;
@@ -148,6 +201,9 @@ const SHADOW_STYLES = `
       max-height: 50vh;
       border-radius: 18px 18px 0 0;
       padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+    .ac-sheet .ac-close-btn {
+      display: inline-flex;
     }
   }
   .ac-sheet[data-open="false"] {
@@ -500,6 +556,82 @@ function createEl<K extends string>(
   return el;
 }
 
+interface RectBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+const VIEWPORT_EDGE = 8;
+const PILL_SHEET_GAP = 12;
+const PILL_CIRCLE_SIZE = 44;
+const DEFAULT_PILL_ESTIMATE = { width: 138, height: 42 };
+const DEFAULT_SHEET_WIDTH = 360;
+const DEFAULT_SHEET_HEIGHT = 280;
+
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function getViewportSize(): { width: number; height: number } {
+  const width =
+    typeof window !== 'undefined' &&
+    typeof window.innerWidth === 'number' &&
+    window.innerWidth > 0
+      ? window.innerWidth
+      : 1280;
+  const height =
+    typeof window !== 'undefined' &&
+    typeof window.innerHeight === 'number' &&
+    window.innerHeight > 0
+      ? window.innerHeight
+      : 800;
+  return { width, height };
+}
+
+function isDesktopViewport(): boolean {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    try {
+      return window.matchMedia('(min-width: 641px)').matches;
+    } catch {
+      // Fallback to innerWidth check
+    }
+  }
+  return getViewportSize().width >= 641;
+}
+
+function getElementRect(el: HTMLElement, fallback: RectBox): RectBox {
+  if (typeof el.getBoundingClientRect === 'function') {
+    const r = el.getBoundingClientRect();
+    if (r && (r.width > 0 || r.height > 0)) {
+      return {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        width: r.width,
+        height: r.height,
+      };
+    }
+  }
+  return fallback;
+}
+
+function makeRect(left: number, top: number, width: number, height: number): RectBox {
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+  };
+}
+
 export function mountAutoCoupon(
   options: MountAutoCouponOptions = {},
 ): AutoCouponController {
@@ -613,15 +745,25 @@ export function mountAutoCoupon(
     }
   }
 
+  const cleanupCallbacks: Array<() => void> = [];
+
   host.__acCleanup = () => {
     clearInterval(keepAliveTimer);
     mutationObserver?.disconnect();
     clearRateLimitCooldown();
+    for (const cb of cleanupCallbacks) {
+      try {
+        cb();
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   };
 
   const shadow = host.attachShadow({ mode: 'open' });
 
   let isOpen = false;
+  let customPillPos: { left: number; top: number } | null = null;
   let forceRetry = false;
   let manualQueueCodes: string[] = [];
   let feedWalletCoupons: CouponEntry[] = [];
@@ -644,8 +786,12 @@ export function mountAutoCoupon(
     type: 'button',
     class: 'ac-pill',
     'data-role': 'floating-pill',
+    'data-open': 'false',
+    'aria-label': '展開自動領券選單',
   }) as HTMLButtonElement;
-  pillBtn.appendChild(createEl(document, 'span', undefined, '🎟️ 自動領券'));
+  pillBtn.appendChild(
+    createEl(document, 'span', { class: 'ac-pill-label' }, '🎟️ 自動領券'),
+  );
   const pillBadge = createEl(
     document,
     'span',
@@ -653,6 +799,14 @@ export function mountAutoCoupon(
     '0',
   );
   pillBtn.appendChild(pillBadge);
+  pillBtn.appendChild(
+    createEl(
+      document,
+      'span',
+      { class: 'ac-pill-close-icon', 'aria-hidden': 'true' },
+      '✕',
+    ),
+  );
   const isUber = platform.id === 'ubereats';
   const pillBg = isUber
     ? 'linear-gradient(135deg, #06C167, #10B981)'
@@ -665,37 +819,6 @@ export function mountAutoCoupon(
   pillBtn.style.background = pillBg;
   pillBtn.style.boxShadow = `0 6px 24px ${shadowColor}`;
   pillBadge.style.color = badgeColor;
-
-  pillBtn.style.cssText =
-    'position: fixed !important;' +
-    'right: 16px !important;' +
-    'bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;' +
-    'z-index: 2147483647 !important;' +
-    'display: inline-flex !important;' +
-    'align-items: center !important;' +
-    'gap: 6px !important;' +
-    'padding: 10px 14px !important;' +
-    'border-radius: 999px !important;' +
-    'border: 2px solid rgba(255, 255, 255, 0.95) !important;' +
-    `background: ${pillBg} !important;` +
-    'color: #ffffff !important;' +
-    'font-size: 14px !important;' +
-    'font-weight: 700 !important;' +
-    `box-shadow: 0 6px 24px ${shadowColor} !important;` +
-    'cursor: pointer !important;' +
-    'touch-action: none !important;' +
-    '-webkit-user-select: none !important;' +
-    'user-select: none !important;' +
-    '-webkit-tap-highlight-color: transparent !important;';
-
-  pillBadge.style.cssText =
-    'background: #ffffff !important;' +
-    `color: ${badgeColor} !important;` +
-    'border-radius: 999px !important;' +
-    'padding: 2px 7px !important;' +
-    'font-size: 12px !important;' +
-    'font-weight: 800 !important;' +
-    'display: inline-block !important;';
 
   shadow.appendChild(pillBtn);
 
@@ -719,7 +842,7 @@ export function mountAutoCoupon(
     'button',
     {
       type: 'button',
-      class: 'ac-btn ac-btn-secondary',
+      class: 'ac-btn ac-btn-secondary ac-close-btn',
       'data-role': 'close-sheet-btn',
     },
     '收合',
@@ -1044,6 +1167,7 @@ export function mountAutoCoupon(
     if (tab === 'history') {
       renderHistory();
     }
+    syncFloatingLayout();
   }
 
   tabQueueBtn.addEventListener('click', () => switchTab('queue'));
@@ -1260,7 +1384,190 @@ export function mountAutoCoupon(
     }
   }
 
+  let currentPlacement: 'above' | 'below' = 'above';
+  let activeDragPlacement: 'above' | 'below' | null = null;
+
+  function applyPillPosition(): void {
+    if (customPillPos) {
+      pillBtn.style.left = `${Math.round(customPillPos.left)}px`;
+      pillBtn.style.top = `${Math.round(customPillPos.top)}px`;
+      pillBtn.style.right = 'auto';
+      pillBtn.style.bottom = 'auto';
+    } else {
+      pillBtn.style.left = '';
+      pillBtn.style.top = '';
+      pillBtn.style.right = '';
+      pillBtn.style.bottom = '';
+    }
+  }
+
+  function clearSheetInlineLayout(): void {
+    sheetEl.style.left = '';
+    sheetEl.style.top = '';
+    sheetEl.style.right = '';
+    sheetEl.style.bottom = '';
+    sheetEl.style.maxHeight = '';
+    sheetEl.style.transformOrigin = '';
+    sheetEl.removeAttribute('data-placement');
+  }
+
+  function syncFloatingLayout(): void {
+    applyPillPosition();
+    const desktop = isDesktopViewport();
+    if (!desktop || !isOpen) {
+      clearSheetInlineLayout();
+      return;
+    }
+
+    const { width: vw, height: vh } = getViewportSize();
+    const fallbackPill = customPillPos
+      ? makeRect(
+          customPillPos.left,
+          customPillPos.top,
+          PILL_CIRCLE_SIZE,
+          PILL_CIRCLE_SIZE,
+        )
+      : makeRect(
+          vw - 16 - PILL_CIRCLE_SIZE,
+          vh - 90 - PILL_CIRCLE_SIZE,
+          PILL_CIRCLE_SIZE,
+          PILL_CIRCLE_SIZE,
+        );
+    const pillRect = getElementRect(pillBtn, fallbackPill);
+    const fallbackSheetWidth = Math.min(DEFAULT_SHEET_WIDTH, vw - VIEWPORT_EDGE * 2);
+    const measuredSheet = getElementRect(
+      sheetEl,
+      makeRect(0, 0, fallbackSheetWidth, DEFAULT_SHEET_HEIGHT),
+    );
+    const sheetWidth =
+      measuredSheet.width > 0 ? measuredSheet.width : fallbackSheetWidth;
+
+    const spaceAbove = pillRect.top - VIEWPORT_EDGE - PILL_SHEET_GAP;
+    const spaceBelow = vh - pillRect.bottom - VIEWPORT_EDGE - PILL_SHEET_GAP;
+    const placement: 'above' | 'below' =
+      activeDragPlacement ??
+      (spaceAbove >= 240 || spaceAbove >= spaceBelow ? 'above' : 'below');
+    currentPlacement = placement;
+
+    const availHeight = Math.max(
+      160,
+      placement === 'above' ? spaceAbove : spaceBelow,
+    );
+    const pillCenterX = pillRect.left + pillRect.width / 2;
+    const alignRight = pillCenterX >= vw / 2;
+    const rawLeft = alignRight ? pillRect.right - sheetWidth : pillRect.left;
+    const sheetLeft = clamp(
+      rawLeft,
+      VIEWPORT_EDGE,
+      vw - sheetWidth - VIEWPORT_EDGE,
+    );
+
+    sheetEl.setAttribute('data-placement', placement);
+    sheetEl.style.left = `${Math.round(sheetLeft)}px`;
+    sheetEl.style.right = 'auto';
+    sheetEl.style.maxHeight = `${Math.floor(Math.min(vh * 0.68, availHeight))}px`;
+
+    if (placement === 'above') {
+      sheetEl.style.bottom = `${Math.round(
+        Math.max(VIEWPORT_EDGE, vh - pillRect.top + PILL_SHEET_GAP),
+      )}px`;
+      sheetEl.style.top = 'auto';
+      sheetEl.style.transformOrigin = alignRight
+        ? 'bottom right'
+        : 'bottom left';
+    } else {
+      sheetEl.style.top = `${Math.round(
+        Math.max(VIEWPORT_EDGE, pillRect.bottom + PILL_SHEET_GAP),
+      )}px`;
+      sheetEl.style.bottom = 'auto';
+      sheetEl.style.transformOrigin = alignRight ? 'top right' : 'top left';
+    }
+  }
+
+  function setSheetOpen(nextOpen: boolean): void {
+    if (nextOpen === isOpen) {
+      renderState();
+      return;
+    }
+
+    if (customPillPos && isDesktopViewport()) {
+      const { width: vw, height: vh } = getViewportSize();
+      if (nextOpen) {
+        const beforeRect = getElementRect(
+          pillBtn,
+          makeRect(
+            customPillPos.left,
+            customPillPos.top,
+            DEFAULT_PILL_ESTIMATE.width,
+            DEFAULT_PILL_ESTIMATE.height,
+          ),
+        );
+        const alignRight = beforeRect.left + beforeRect.width / 2 >= vw / 2;
+        const circleLeft = alignRight
+          ? beforeRect.right - PILL_CIRCLE_SIZE
+          : beforeRect.left;
+        customPillPos = {
+          left: clamp(
+            circleLeft,
+            VIEWPORT_EDGE,
+            vw - PILL_CIRCLE_SIZE - VIEWPORT_EDGE,
+          ),
+          top: clamp(
+            beforeRect.top,
+            VIEWPORT_EDGE,
+            vh - PILL_CIRCLE_SIZE - VIEWPORT_EDGE,
+          ),
+        };
+      } else {
+        const circleRect = getElementRect(
+          pillBtn,
+          makeRect(
+            customPillPos.left,
+            customPillPos.top,
+            PILL_CIRCLE_SIZE,
+            PILL_CIRCLE_SIZE,
+          ),
+        );
+        isOpen = false;
+        pillBtn.setAttribute('data-open', 'false');
+        const afterRect = getElementRect(
+          pillBtn,
+          makeRect(
+            circleRect.left,
+            circleRect.top,
+            DEFAULT_PILL_ESTIMATE.width,
+            DEFAULT_PILL_ESTIMATE.height,
+          ),
+        );
+        const alignRight = circleRect.left + circleRect.width / 2 >= vw / 2;
+        const collapsedLeft = alignRight
+          ? circleRect.right - afterRect.width
+          : circleRect.left;
+        customPillPos = {
+          left: clamp(
+            collapsedLeft,
+            VIEWPORT_EDGE,
+            vw - afterRect.width - VIEWPORT_EDGE,
+          ),
+          top: clamp(
+            circleRect.top,
+            VIEWPORT_EDGE,
+            vh - afterRect.height - VIEWPORT_EDGE,
+          ),
+        };
+      }
+    }
+
+    isOpen = nextOpen;
+    renderState();
+  }
+
   function renderState(): void {
+    pillBtn.setAttribute('data-open', isOpen ? 'true' : 'false');
+    pillBtn.setAttribute(
+      'aria-label',
+      isOpen ? '收合自動領券選單' : '展開自動領券選單',
+    );
     sheetEl.setAttribute('data-open', isOpen ? 'true' : 'false');
     const totalWalletCount = getEffectiveWalletCodes().length;
     const untriedCount = computeUntriedCount();
@@ -1274,6 +1581,7 @@ export function mountAutoCoupon(
       pausedRemainingCodes.length > 0 || rateLimitCooldownTimer !== null;
     resumeRunBtn.setAttribute('data-paused', isPaused ? 'true' : 'false');
     renderHistory();
+    syncFloatingLayout();
   }
 
   async function syncFeed(): Promise<void> {
@@ -1288,47 +1596,257 @@ export function mountAutoCoupon(
     renderState();
   }
 
-  let dragged = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
+  let suppressNextPillClick = false;
+  let clearSuppressTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeDragCleanup: (() => void) | null = null;
 
-  pillBtn.addEventListener('pointerdown', (ev: Event) => {
-    const pe = ev as unknown as { clientX?: number; clientY?: number };
-    dragged = false;
-    dragStartX = pe.clientX ?? 0;
-    dragStartY = pe.clientY ?? 0;
-  });
+  const globalEventTarget =
+    typeof window !== 'undefined' && typeof window.addEventListener === 'function'
+      ? window
+      : document;
 
-  pillBtn.addEventListener('pointermove', (ev: Event) => {
+  function beginDrag(
+    sourceEl: HTMLElement,
+    ev: Event,
+    allowWhenOpenOnly = false,
+  ): void {
     const pe = ev as unknown as {
       clientX?: number;
       clientY?: number;
-      buttons?: number;
+      button?: number;
+      pointerId?: number;
+      target?: { closest?: (sel: string) => unknown } | null;
     };
-    if (!pe.buttons) return;
-    const dx = Math.abs((pe.clientX ?? 0) - dragStartX);
-    const dy = Math.abs((pe.clientY ?? 0) - dragStartY);
-    if (dx > 8 || dy > 8) {
-      dragged = true;
-      pillBtn.style.right = 'auto';
-      pillBtn.style.bottom = 'auto';
-      pillBtn.style.left = `${Math.max(8, (pe.clientX ?? 40) - 40)}px`;
-      pillBtn.style.top = `${Math.max(8, (pe.clientY ?? 20) - 20)}px`;
+    if (pe.button !== undefined && pe.button !== 0) return;
+    if (allowWhenOpenOnly && (!isOpen || !isDesktopViewport())) return;
+    if (sourceEl === headerRow && pe.target?.closest?.('button')) return;
+
+    activeDragCleanup?.();
+
+    const dragStartX = pe.clientX ?? 0;
+    const dragStartY = pe.clientY ?? 0;
+    const { width: vw, height: vh } = getViewportSize();
+    const isDesktopGroupDrag = isOpen && isDesktopViewport();
+
+    const fallbackPillStart = customPillPos
+      ? makeRect(
+          customPillPos.left,
+          customPillPos.top,
+          isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.width,
+          isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.height,
+        )
+      : makeRect(
+          vw - 16 - (isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.width),
+          vh - 90 - (isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.height),
+          isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.width,
+          isDesktopGroupDrag ? PILL_CIRCLE_SIZE : DEFAULT_PILL_ESTIMATE.height,
+        );
+    const pillStartRect = getElementRect(pillBtn, fallbackPillStart);
+    const estSheetWidth = Math.min(DEFAULT_SHEET_WIDTH, vw - VIEWPORT_EDGE * 2);
+    const parsedSheetLeft = Number.parseFloat(sheetEl.style.left);
+    const parsedSheetTop = Number.parseFloat(sheetEl.style.top);
+    const parsedSheetBottom = Number.parseFloat(sheetEl.style.bottom);
+    const alignRight =
+      pillStartRect.left + pillStartRect.width / 2 >= vw / 2;
+    const fallbackSheetLeft = Number.isFinite(parsedSheetLeft)
+      ? parsedSheetLeft
+      : clamp(
+          alignRight ? pillStartRect.right - estSheetWidth : pillStartRect.left,
+          VIEWPORT_EDGE,
+          vw - estSheetWidth - VIEWPORT_EDGE,
+        );
+    const fallbackSheetTop = Number.isFinite(parsedSheetTop)
+      ? parsedSheetTop
+      : Number.isFinite(parsedSheetBottom)
+        ? vh - parsedSheetBottom - DEFAULT_SHEET_HEIGHT
+        : currentPlacement === 'below'
+          ? pillStartRect.bottom + PILL_SHEET_GAP
+          : pillStartRect.top - PILL_SHEET_GAP - DEFAULT_SHEET_HEIGHT;
+    const sheetStartRect = isDesktopGroupDrag
+      ? getElementRect(
+          sheetEl,
+          makeRect(
+            fallbackSheetLeft,
+            fallbackSheetTop,
+            estSheetWidth,
+            DEFAULT_SHEET_HEIGHT,
+          ),
+        )
+      : null;
+
+    if (isDesktopGroupDrag) {
+      activeDragPlacement = currentPlacement;
     }
+
+    if (
+      typeof pe.pointerId === 'number' &&
+      typeof (sourceEl as unknown as { setPointerCapture?: (id: number) => void })
+        .setPointerCapture === 'function'
+    ) {
+      try {
+        (sourceEl as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture(
+          pe.pointerId,
+        );
+      } catch {
+        // Ignore capture failure on synthetic events
+      }
+    }
+
+    let moved = false;
+
+    const onPointerMove = (moveEv: Event) => {
+      const mpe = moveEv as unknown as {
+        clientX?: number;
+        clientY?: number;
+        buttons?: number;
+      };
+      if (mpe.buttons === 0) {
+        onPointerUp();
+        return;
+      }
+      const dx = (mpe.clientX ?? dragStartX) - dragStartX;
+      const dy = (mpe.clientY ?? dragStartY) - dragStartY;
+      if (!moved && Math.abs(dx) <= 6 && Math.abs(dy) <= 6) {
+        return;
+      }
+      moved = true;
+      if (sourceEl === pillBtn) {
+        suppressNextPillClick = true;
+      }
+
+      const { width: curVw, height: curVh } = getViewportSize();
+
+      if (isDesktopGroupDrag && sheetStartRect) {
+        const groupLeft = Math.min(pillStartRect.left, sheetStartRect.left);
+        const groupTop = Math.min(pillStartRect.top, sheetStartRect.top);
+        const groupRight = Math.max(pillStartRect.right, sheetStartRect.right);
+        const groupBottom = Math.max(pillStartRect.bottom, sheetStartRect.bottom);
+
+        const clampedDx = clamp(
+          dx,
+          VIEWPORT_EDGE - groupLeft,
+          curVw - VIEWPORT_EDGE - groupRight,
+        );
+        const clampedDy = clamp(
+          dy,
+          VIEWPORT_EDGE - groupTop,
+          curVh - VIEWPORT_EDGE - groupBottom,
+        );
+
+        const newPillLeft = pillStartRect.left + clampedDx;
+        const newPillTop = pillStartRect.top + clampedDy;
+        const newSheetLeft = sheetStartRect.left + clampedDx;
+
+        customPillPos = { left: newPillLeft, top: newPillTop };
+        applyPillPosition();
+
+        sheetEl.style.left = `${Math.round(newSheetLeft)}px`;
+        sheetEl.style.right = 'auto';
+        if (activeDragPlacement === 'below') {
+          sheetEl.style.top = `${Math.round(
+            newPillTop + pillStartRect.height + PILL_SHEET_GAP,
+          )}px`;
+          sheetEl.style.bottom = 'auto';
+        } else {
+          sheetEl.style.bottom = `${Math.round(
+            curVh - newPillTop + PILL_SHEET_GAP,
+          )}px`;
+          sheetEl.style.top = 'auto';
+        }
+      } else {
+        const newLeft = clamp(
+          pillStartRect.left + dx,
+          VIEWPORT_EDGE,
+          curVw - pillStartRect.width - VIEWPORT_EDGE,
+        );
+        const newTop = clamp(
+          pillStartRect.top + dy,
+          VIEWPORT_EDGE,
+          curVh - pillStartRect.height - VIEWPORT_EDGE,
+        );
+        customPillPos = { left: newLeft, top: newTop };
+        applyPillPosition();
+      }
+    };
+
+    const onPointerUp = () => {
+      cleanupDrag();
+      if (moved && sourceEl === pillBtn) {
+        suppressNextPillClick = true;
+        if (clearSuppressTimer !== null) {
+          clearTimeout(clearSuppressTimer);
+        }
+        clearSuppressTimer = setTimeout(() => {
+          suppressNextPillClick = false;
+          clearSuppressTimer = null;
+        }, 50);
+        (clearSuppressTimer as unknown as { unref?: () => void })?.unref?.();
+      }
+    };
+
+    const cleanupDrag = () => {
+      activeDragPlacement = null;
+      globalEventTarget.removeEventListener('pointermove', onPointerMove);
+      globalEventTarget.removeEventListener('pointerup', onPointerUp);
+      globalEventTarget.removeEventListener('pointercancel', onPointerUp);
+      if (activeDragCleanup === cleanupDrag) {
+        activeDragCleanup = null;
+      }
+    };
+
+    activeDragCleanup = cleanupDrag;
+    globalEventTarget.addEventListener('pointermove', onPointerMove);
+    globalEventTarget.addEventListener('pointerup', onPointerUp);
+    globalEventTarget.addEventListener('pointercancel', onPointerUp);
+  }
+
+  pillBtn.addEventListener('pointerdown', (ev: Event) => {
+    beginDrag(pillBtn, ev, false);
+  });
+
+  headerRow.addEventListener('pointerdown', (ev: Event) => {
+    beginDrag(headerRow, ev, true);
+  });
+
+  const onViewportResize = () => {
+    if (customPillPos) {
+      const { width: vw, height: vh } = getViewportSize();
+      const estW =
+        isOpen && isDesktopViewport()
+          ? PILL_CIRCLE_SIZE
+          : DEFAULT_PILL_ESTIMATE.width;
+      const estH =
+        isOpen && isDesktopViewport()
+          ? PILL_CIRCLE_SIZE
+          : DEFAULT_PILL_ESTIMATE.height;
+      customPillPos = {
+        left: clamp(customPillPos.left, VIEWPORT_EDGE, vw - estW - VIEWPORT_EDGE),
+        top: clamp(customPillPos.top, VIEWPORT_EDGE, vh - estH - VIEWPORT_EDGE),
+      };
+    }
+    syncFloatingLayout();
+  };
+  globalEventTarget.addEventListener('resize', onViewportResize);
+
+  cleanupCallbacks.push(() => {
+    activeDragCleanup?.();
+    if (clearSuppressTimer !== null) {
+      clearTimeout(clearSuppressTimer);
+      clearSuppressTimer = null;
+    }
+    globalEventTarget.removeEventListener('resize', onViewportResize);
   });
 
   pillBtn.addEventListener('click', () => {
-    if (dragged) {
-      dragged = false;
+    if (suppressNextPillClick) {
+      suppressNextPillClick = false;
       return;
     }
-    isOpen = !isOpen;
-    renderState();
+    setSheetOpen(!isOpen);
   });
 
   closeBtn.addEventListener('click', () => {
-    isOpen = false;
-    renderState();
+    setSheetOpen(false);
   });
 
   syncFeedBtn.addEventListener('click', () => {

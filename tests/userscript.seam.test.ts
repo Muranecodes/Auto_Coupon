@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { FakeShadowRoot, installFakeDom } from './helpers/fake-dom.ts';
+import { FakeEvent, FakeShadowRoot, installFakeDom } from './helpers/fake-dom.ts';
 import { mountAutoCoupon } from '../src/userscript/app.ts';
 import {
   recordNetworkFeedbackText,
@@ -831,9 +831,11 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
     )!;
     assert.equal(resumeBtn.getAttribute('data-paused'), 'false');
 
-    // Verify Shadow DOM stylesheet enforces top-anchored desktop card and fixed-height mobile sheet
+    // Verify Shadow DOM stylesheet enforces pill-anchored desktop card and fixed-height mobile sheet
     const styleText = shadow.querySelector('style')?.textContent ?? '';
-    assert.match(styleText, /top:\s*max\(12px,\s*calc\(48vh - 80px\)\)/);
+    assert.match(styleText, /\.ac-pill\[data-open="true"\]\s*\{[\s\S]*width:\s*44px;/);
+    assert.match(styleText, /bottom:\s*calc\(146px \+ env\(safe-area-inset-bottom, 0px\)\)/);
+    assert.match(styleText, /\.ac-sheet \.ac-close-btn\s*\{\s*display:\s*none;/);
     assert.match(styleText, /height:\s*45vh/);
 
     // Default active tab is queue
@@ -1137,6 +1139,136 @@ describe('Seam 1: Userscript Mounted Controller on foodpanda wallet page', () =>
       undefined,
       'POISONED_CODE_2 should have been cleansed on load',
     );
+  });
+
+  it('grows desktop menu from floating pill as circular close toggle, flips below near top edge, and supports free dragging while closed or open', () => {
+    const env = installFakeDom('https://www.foodpanda.com.tw/vouchers');
+    Object.assign(env.window, { innerWidth: 1280, innerHeight: 800 });
+    document.body.innerHTML = '<main id="vouchers-page"></main>';
+
+    mountAutoCoupon({
+      url: 'https://www.foodpanda.com.tw/vouchers',
+      autoSyncFeed: false,
+    });
+
+    const host = document.querySelector('#auto-coupon-root')!;
+    const shadow = host.shadowRoot!;
+    const pill = shadow.querySelector<HTMLButtonElement>('[data-role="floating-pill"]')!;
+    const sheet = shadow.querySelector<HTMLElement>('[data-role="bottom-sheet"]')!;
+    const header = shadow.querySelector<HTMLElement>('.ac-header')!;
+
+    // No inline cssText !important locking right/bottom
+    assert.equal(pill.style.cssText, undefined);
+    assert.equal(pill.getAttribute('data-open'), 'false');
+    assert.equal(sheet.getAttribute('data-open'), 'false');
+
+    // Clicking pill opens sheet above pill and switches pill to open (circular ✕) state
+    pill.click();
+    assert.equal(pill.getAttribute('data-open'), 'true');
+    assert.equal(sheet.getAttribute('data-open'), 'true');
+    assert.equal(sheet.getAttribute('data-placement'), 'above');
+    assert.equal(sheet.style.bottom, '146px');
+    assert.equal(sheet.style.top, 'auto');
+    assert.equal(sheet.style.transformOrigin, 'bottom right');
+
+    // Clicking pill again collapses sheet and pill back to default
+    pill.click();
+    assert.equal(pill.getAttribute('data-open'), 'false');
+    assert.equal(sheet.getAttribute('data-open'), 'false');
+    assert.equal(sheet.getAttribute('data-placement'), null);
+
+    // Drag closed pill freely to top-left corner (right=16 -> left ~20, top ~24)
+    pill.dispatchEvent(
+      Object.assign(new FakeEvent('pointerdown', { bubbles: true }), {
+        clientX: 1200,
+        clientY: 680,
+        button: 0,
+      }),
+    );
+    document.dispatchEvent(
+      Object.assign(new FakeEvent('pointermove', { bubbles: true }), {
+        clientX: 90,
+        clientY: 36,
+        buttons: 1,
+      }),
+    );
+    document.dispatchEvent(new FakeEvent('pointerup', { bubbles: true }));
+
+    assert.equal(pill.style.right, 'auto');
+    assert.equal(pill.style.bottom, 'auto');
+    const draggedLeft = Number.parseFloat(pill.style.left);
+    const draggedTop = Number.parseFloat(pill.style.top);
+    assert.ok(draggedLeft >= 8 && draggedLeft < 100, `Expected free left placement, got ${draggedLeft}`);
+    assert.ok(draggedTop >= 8 && draggedTop < 100, `Expected free top placement, got ${draggedTop}`);
+
+    // Trailing click immediately after drag must not toggle open
+    pill.click();
+    assert.equal(sheet.getAttribute('data-open'), 'false');
+
+    // Clicking pill at top-left opens sheet BELOW pill and clamps left >= 8px
+    pill.click();
+    assert.equal(sheet.getAttribute('data-open'), 'true');
+    assert.equal(sheet.getAttribute('data-placement'), 'below');
+    assert.equal(sheet.style.transformOrigin, 'top left');
+    assert.ok(Number.parseFloat(sheet.style.left) >= 8);
+    assert.ok(Number.parseFloat(sheet.style.top) > draggedTop);
+
+    // Dragging sheet header while open moves both pill and sheet together
+    const prevPillLeft = Number.parseFloat(pill.style.left);
+    const prevPillTop = Number.parseFloat(pill.style.top);
+    const prevSheetLeft = Number.parseFloat(sheet.style.left);
+    const prevSheetTop = Number.parseFloat(sheet.style.top);
+
+    header.dispatchEvent(
+      Object.assign(new FakeEvent('pointerdown', { bubbles: true }), {
+        clientX: 100,
+        clientY: 120,
+        button: 0,
+      }),
+    );
+    document.dispatchEvent(
+      Object.assign(new FakeEvent('pointermove', { bubbles: true }), {
+        clientX: 250,
+        clientY: 220,
+        buttons: 1,
+      }),
+    );
+    document.dispatchEvent(new FakeEvent('pointerup', { bubbles: true }));
+
+    assert.equal(Number.parseFloat(pill.style.left), prevPillLeft + 150);
+    assert.equal(Number.parseFloat(pill.style.top), prevPillTop + 100);
+    assert.equal(Number.parseFloat(sheet.style.left), prevSheetLeft + 150);
+    assert.equal(Number.parseFloat(sheet.style.top), prevSheetTop + 100);
+  });
+
+  it('keeps mobile bottom sheet layout and hides floating pill via CSS when viewport is <= 640px', () => {
+    const env = installFakeDom('https://www.foodpanda.com.tw/vouchers');
+    Object.assign(env.window, { innerWidth: 375, innerHeight: 667 });
+    document.body.innerHTML = '<main id="vouchers-page"></main>';
+
+    mountAutoCoupon({
+      url: 'https://www.foodpanda.com.tw/vouchers',
+      autoSyncFeed: false,
+    });
+
+    const shadow = document.querySelector('#auto-coupon-root')!.shadowRoot!;
+    const pill = shadow.querySelector<HTMLButtonElement>('[data-role="floating-pill"]')!;
+    const sheet = shadow.querySelector<HTMLElement>('[data-role="bottom-sheet"]')!;
+    const closeBtn = shadow.querySelector<HTMLButtonElement>('[data-role="close-sheet-btn"]')!;
+    const styleText = shadow.querySelector('style')?.textContent ?? '';
+
+    assert.match(styleText, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ac-pill\[data-open="true"\]\s*\{\s*display:\s*none;/);
+
+    pill.click();
+    assert.equal(pill.getAttribute('data-open'), 'true');
+    assert.equal(sheet.getAttribute('data-open'), 'true');
+    assert.equal(sheet.getAttribute('data-placement'), null);
+    assert.equal(sheet.style.bottom, '');
+    assert.equal(sheet.style.left, '');
+
+    closeBtn.click();
+    assert.equal(sheet.getAttribute('data-open'), 'false');
+    assert.equal(pill.getAttribute('data-open'), 'false');
   });
 });
 
