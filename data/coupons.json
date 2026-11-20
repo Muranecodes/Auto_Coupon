@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-20T01:00:25.508Z",
+  "updatedAt": "2026-11-20T05:04:31.696Z",
   "coupons": [
     {
       "code": "11111111111",
@@ -256,20 +256,20 @@
     {
       "code": "十一六折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 1 次 6 折優惠，最高折 $60(台南市全區)",
+      "title": "【外送】 消費滿 149 元享 1 次 6 折優惠，最高折抵 60 元 (台南市)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一吃五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(南投縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (南投縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一吃吃",
@@ -283,20 +283,20 @@
     {
       "code": "十一喜五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(雲林縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (雲林縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一好五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(彰化縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (彰化縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一快快點",
@@ -310,65 +310,83 @@
     {
       "code": "十一狂五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(屏東縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (屏東縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一省五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(宜蘭縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (宜蘭縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一飽五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(嘉義市、嘉義縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (嘉義市、嘉義縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十一點五",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(苗栗縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (苗栗縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十歲吃49",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 699 元折 49 元",
+      "title": "【外送】 消費滿 699 元現折 49 元",
       "category": "wallet",
-      "expiresAt": "2026-12-22",
+      "expiresAt": "2026-11-22",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-16T04:02:56.510Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十歲吃79",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 699 元折 79 元",
+      "title": "【外送】 消費滿 699 元現折 79 元",
       "category": "wallet",
-      "expiresAt": "2026-12-22",
+      "expiresAt": "2026-11-22",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-16T04:02:56.510Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十歲吃99",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 699 元折 99 元",
+      "title": "【外送】 消費滿 699 元現折 99 元",
       "category": "wallet",
-      "expiresAt": "2026-12-22",
+      "expiresAt": "2026-11-22",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-16T04:02:56.510Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
+    },
+    {
+      "code": "十歲吃胖老爹",
+      "platform": "ubereats",
+      "title": "【外送-指定店家】 胖老爹 消費滿 450 元享 8 折優惠，最高折抵 100 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-22",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-20T05:04:31.696Z"
+    },
+    {
+      "code": "十歲吃麻膳堂",
+      "platform": "ubereats",
+      "title": "【外送-指定店家】 麻膳堂 消費滿 450 元享 8 折優惠，最高折抵 100 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-22",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "十歲啦",
@@ -393,18 +411,18 @@
       "platform": "ubereats",
       "title": "【商城-指定店家】 優市「Uber One會員」消費滿 999 元現折 110 元",
       "category": "wallet",
-      "expiresAt": "2026-11-20",
+      "expiresAt": "2026-12-03",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-13T21:29:25.917Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "南投免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (南投縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (南投縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "台新瘋雙11",
@@ -418,56 +436,56 @@
     {
       "code": "台東免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (台東縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (台東縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "嘉義免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (嘉義市、嘉義縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (嘉義市、嘉義縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "基隆免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (基隆市全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (基隆市)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "宜蘭免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (宜蘭縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (宜蘭縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "屏東免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (屏東縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (屏東縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "彰化免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (彰化縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (彰化縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "會員週年享",
@@ -499,11 +517,11 @@
     {
       "code": "澎湖免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (澎湖縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (澎湖縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "玉山限定優惠",
@@ -526,65 +544,65 @@
     {
       "code": "秋享五折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80 (基隆市全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (基隆市)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "秋想五折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(台東縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (台東縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "秋有五折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(金門縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (金門縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "秋狂五折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(澎湖縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (澎湖縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "秋訂五折",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折 $80(花蓮縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 5 折優惠，最高折抵 80 元 (花蓮縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "花蓮免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (花蓮縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (花蓮縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "苗栗免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (苗栗縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (苗栗縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "躺著點",
@@ -616,20 +634,29 @@
     {
       "code": "金門免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (金門縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (金門縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
+    },
+    {
+      "code": "開打補給66",
+      "platform": "ubereats",
+      "title": "【外送】 消費滿 360 元現折 66 元",
+      "category": "wallet",
+      "expiresAt": "2026-11-24",
+      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     },
     {
       "code": "雲林免費",
       "platform": "ubereats",
-      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (雲林縣全區)",
+      "title": "【外送】 消費滿 149 元享 4 次 0 元外送費 (雲林縣)",
       "category": "wallet",
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-19T05:18:03.071Z"
+      "updatedAt": "2026-11-20T05:04:31.696Z"
     }
   ]
 }
