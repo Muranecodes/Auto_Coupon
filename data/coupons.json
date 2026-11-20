@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-19T05:18:03.071Z",
+  "updatedAt": "2026-11-20T01:00:25.508Z",
   "coupons": [
     {
       "code": "11111111111",
@@ -394,15 +394,6 @@
       "title": "【商城-指定店家】 優市「Uber One會員」消費滿 999 元現折 110 元",
       "category": "wallet",
       "expiresAt": "2026-11-20",
-      "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
-      "updatedAt": "2026-11-13T21:29:25.917Z"
-    },
-    {
-      "code": "十週年買優市",
-      "platform": "ubereats",
-      "title": "【商城-指定店家】 優市「Uber One會員」消費滿 899 元現折 120 元",
-      "category": "wallet",
-      "expiresAt": "2026-11-19",
       "sourceUrl": "https://www.callingtaiwan.com.tw/ubereats%E5%84%AA%E6%83%A0-%E6%9C%80%E6%96%B0%E9%A4%90%E5%BB%B3%E5%A4%96%E9%80%81%E9%A6%96%E8%B3%BC%E5%84%AA%E6%83%A0%E5%BA%8F%E8%99%9F-%E6%8A%98%E6%89%A3%E7%A2%BC-%E6%8E%A8%E8%96%A6%E7%A2%BC/",
       "updatedAt": "2026-11-13T21:29:25.917Z"
     },
