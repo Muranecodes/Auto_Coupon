@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-20T05:04:31.696Z",
+  "updatedAt": "2026-11-21T01:00:28.172Z",
   "coupons": [
     {
       "code": "11111111111",
@@ -108,15 +108,6 @@
       "expiresAt": "2026-11-30",
       "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/",
       "updatedAt": "2026-11-13T21:29:25.917Z"
-    },
-    {
-      "code": "平日買康是美",
-      "platform": "foodpanda",
-      "title": "【商城-指定店家】 康是美 平日消費滿 $300 享 6 折，滿 $699 享 85 折",
-      "category": "wallet",
-      "expiresAt": "2026-11-20",
-      "sourceUrl": "https://www.callingtaiwan.com.tw/foodpanda-coupon-code/",
-      "updatedAt": "2026-11-17T05:54:18.203Z"
     },
     {
       "code": "爽爽吃",
